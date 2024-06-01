@@ -1,0 +1,55 @@
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Build and output directories
+bin/
+obj/
+node_modules/
+dist/
+coverage/
+.pnp/
+.pnpm/
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Visual Studio Code files
+.vscode/
+
+# Node.js dependencies
+package-lock.json
+yarn.lock
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+*.sqlite3
+*.db
+
+# User-specific files
+*.suo
+*.user
+*.sln.docstates
+
+# ASP.NET Core artifacts
+*.swp
+*.userprefs
+*.vscode
+.vs
+
+# AWS Amplify generated files
+amplify/#current-cloud-backend
+amplify/.config/local-*
+
+
+# Ignore development-related files and directories (customize as needed)
+.idea/
+__pycache__/
+*.iml
+*.ipynb_checkpoints/
