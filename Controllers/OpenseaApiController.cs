@@ -13,7 +13,7 @@ namespace trnkt_backend.Controllers
     {
         private readonly ILogger<OpenseaApiController> _logger;
 
-        public WeatherForecastController(ILogger<OpenseaApiController> logger)
+        public OpenseaApiController(ILogger<OpenseaApiController> logger)
         {
             _logger = logger;
         }
@@ -21,8 +21,8 @@ namespace trnkt_backend.Controllers
         [HttpGet]
         public IActionResult Get()
         {
-            _logger.LogInformation("- Info log test -");
-            return Ok("Hello from ASP.NET Core API");
+            //_logger.LogInformation("- Info log test -");
+            return Ok("Controller GET: Response Ok!");
         }
 
 

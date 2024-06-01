@@ -1,19 +1,23 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
+using System.Threading.Tasks;
 
-public class DynamoDbService
+namespace trnkt_backend.Services
 {
-    private readonly IAmazonDynamoDB _dynamoDbClient;
-    private readonly DynamoDBContext _context;
-
-    public DynamoDbService(IAmazonDynamoDB dynamoDbClient)
+    public class DynamoDbService
     {
-        _dynamoDbClient = dynamoDbClient;
-        _context = new DynamoDBContext(dynamoDbClient);
-    }
+        private readonly IAmazonDynamoDB _dynamoDbClient;
+        private readonly DynamoDBContext _context;
 
-    public async Task SaveItemAsync<T>(T item)
-    {
-        await _context.SaveAsync(item);
+        public DynamoDbService(IAmazonDynamoDB dynamoDbClient)
+        {
+            _dynamoDbClient = dynamoDbClient;
+            _context = new DynamoDBContext(dynamoDbClient);
+        }
+
+        public async Task SaveItemAsync<T>(T item)
+        {
+            await _context.SaveAsync(item);
+        }
     }
 }
