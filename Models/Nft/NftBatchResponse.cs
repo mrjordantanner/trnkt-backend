@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 
-namespace trnkt_backend.Models
+namespace Trnkt.Models
 {
     public class NftBatchResponse
     {
-         public List<Nft> Nfts { get; set; }
+        public List<Nft> Nfts { get; set; }
     }
 }

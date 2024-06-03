@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
-using trnkt_backend.Models;
+using Trnkt.Models;
 
-namespace trnkt_backend.Services
+namespace Trnkt.Services
 {
     public class NftService
     {

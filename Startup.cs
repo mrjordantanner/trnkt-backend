@@ -1,19 +1,17 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using Amazon.DynamoDBv2;
+using Amazon.Extensions.NETCore.Setup;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.HttpsPolicy;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Text;
 
-namespace trnkt_backend
+namespace Trnkt
 {
     public class Startup
     {
@@ -24,24 +22,41 @@ namespace trnkt_backend
 
         public IConfiguration Configuration { get; }
 
-        // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
+            services.AddHttpClient();
+            services.AddAWSService<IAmazonDynamoDB>();
+            services.AddSingleton<DynamoDbService>();
+            services.AddLogging();
+            services.AddSingleton<IConfiguration>(Configuration);
+
+            services.AddCors(options =>
+            {
+                options.AddPolicy("AllowSpecificOrigin",
+                    builder =>
+                    {
+                        builder.WithOrigins("http://localhost:5173")
+                               .AllowAnyHeader()
+                               .AllowAnyMethod();
+                    });
+            });
+
             services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc("v1", new OpenApiInfo { Title = "trnkt_backend", Version = "v1" });
+                c.SwaggerDoc("v1", new OpenApiInfo { Title = "Trnkt", Version = "v1" });
             });
+
+            services.AddAuthorization();
         }
 
-        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
                 app.UseSwagger();
-                app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "trnkt_backend v1"));
+                app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Trnkt v1"));
             }
             else
             {
@@ -50,17 +65,40 @@ namespace trnkt_backend
             }
 
             app.UseHttpsRedirection();
-            app.UseStaticFiles();  //?
+            app.UseStaticFiles();
             app.UseRouting();
+
+            app.UseCors("AllowSpecificOrigin");
+
+            app.UseAuthentication();
             app.UseAuthorization();
 
-            // Map endpoints
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
                 endpoints.MapGet("/", async context =>
                 {
-                    await context.Response.WriteAsync("/: API is running!");
+                    await context.Response.WriteAsync("/: GET");
+                });
+
+                endpoints.MapPost("/", async context =>
+                {
+                    await context.Response.WriteAsync("/: POST");
+                });
+
+                endpoints.MapPut("/", async context =>
+                {
+                    await context.Response.WriteAsync("/: PUT");
+                });
+
+                endpoints.MapPatch("/", async context =>
+                {
+                    await context.Response.WriteAsync("/: PATCH");
+                });
+
+                endpoints.MapDelete("/", async context =>
+                {
+                    await context.Response.WriteAsync("/: DELETE");
                 });
             });
         }
