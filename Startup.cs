@@ -1,15 +1,14 @@
 using Amazon.DynamoDBv2;
-using Amazon.Extensions.NETCore.Setup;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using Trnkt.Services;
 
 namespace Trnkt
 {
@@ -26,10 +25,13 @@ namespace Trnkt
         {
             services.AddControllers();
             services.AddHttpClient();
-            services.AddAWSService<IAmazonDynamoDB>();
-            services.AddSingleton<DynamoDbService>();
             services.AddLogging();
-            services.AddSingleton<IConfiguration>(Configuration);
+
+            var awsOptions = Configuration.GetAWSOptions();
+            services.AddDefaultAWSOptions(awsOptions);
+            services.AddAWSService<IAmazonDynamoDB>();
+            services.Configure<DynamoDBSettings>(Configuration.GetSection("AWS:DynamoDB"));
+            services.AddSingleton<DynamoDbService>();
 
             services.AddCors(options =>
             {
@@ -42,9 +44,49 @@ namespace Trnkt
                     });
             });
 
+            var jwtKey = Configuration["Jwt:Key"];
+            var key = Encoding.ASCII.GetBytes(jwtKey);
+
+            services.AddAuthentication(x =>
+            {
+                x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+            .AddJwtBearer(x =>
+            {
+                x.RequireHttpsMetadata = false;
+                x.SaveToken = true;
+                x.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(key),
+                    ValidateIssuer = false,
+                    ValidateAudience = false
+                };
+            });
+
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "Trnkt", Version = "v1" });
+                var securityScheme = new OpenApiSecurityScheme
+                {
+                    Name = "Authorization",
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "bearer",
+                    BearerFormat = "JWT",
+                    In = ParameterLocation.Header,
+                    Description = "JWT Authorization header using the Bearer scheme.",
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "Bearer"
+                    }
+                };
+                c.AddSecurityDefinition("Bearer", securityScheme);
+                c.AddSecurityRequirement(new OpenApiSecurityRequirement
+                {
+                    { securityScheme, new[] { "Bearer" } }
+                });
             });
 
             services.AddAuthorization();
@@ -76,30 +118,6 @@ namespace Trnkt
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
-                endpoints.MapGet("/", async context =>
-                {
-                    await context.Response.WriteAsync("/: GET");
-                });
-
-                endpoints.MapPost("/", async context =>
-                {
-                    await context.Response.WriteAsync("/: POST");
-                });
-
-                endpoints.MapPut("/", async context =>
-                {
-                    await context.Response.WriteAsync("/: PUT");
-                });
-
-                endpoints.MapPatch("/", async context =>
-                {
-                    await context.Response.WriteAsync("/: PATCH");
-                });
-
-                endpoints.MapDelete("/", async context =>
-                {
-                    await context.Response.WriteAsync("/: DELETE");
-                });
             });
         }
     }

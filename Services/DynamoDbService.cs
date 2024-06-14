@@ -1,79 +1,113 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using System;
+using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using System.Threading.Tasks;
+using Trnkt.Models;
 
-public class DynamoDbService
+namespace Trnkt.Services
 {
-    private readonly IAmazonDynamoDB _dynamoDbClient;
-    private readonly string _tableName;
-
-    public DynamoDbService(IAmazonDynamoDB dynamoDbClient, IConfiguration configuration)
+    public class DynamoDbService
     {
-        _dynamoDbClient = dynamoDbClient;
-        _tableName = configuration["DynamoDb:TableName"];
-    }
+        private readonly IAmazonDynamoDB _dynamoDbClient;
+        private readonly DynamoDBSettings _settings;
 
-    public async Task<bool> UserExistsAsync(string email)
-    {
-        var request = new QueryRequest
+        public DynamoDbService(IAmazonDynamoDB dynamoDbClient, IOptions<DynamoDBSettings> settings)
         {
-            TableName = _tableName,
-            KeyConditionExpression = "Email = :v_email",
-            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            _dynamoDbClient = dynamoDbClient;
+            _settings = settings.Value;
+        }
+
+        public async Task<bool> UserExistsAsync(string email)
+        {
+            var request = new QueryRequest
             {
-                { ":v_email", new AttributeValue { S = email } }
-            }
-        };
+                TableName = _settings.TableName,
+                KeyConditionExpression = "Email = :v_email",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    { ":v_email", new AttributeValue { S = email } }
+                }
+            };
 
-        var response = await _dynamoDbClient.QueryAsync(request);
-        return response.Items.Count > 0;
-    }
+            var response = await _dynamoDbClient.QueryAsync(request);
+            return response.Items.Count > 0;
+        }
 
-    public async Task CreateUserAsync(string userName, string email, string password)
-    {
-        var request = new PutItemRequest
+        public async Task CreateUserAsync(User user)
         {
-            TableName = _tableName,
-            Item = new Dictionary<string, AttributeValue>
+            var request = new PutItemRequest
             {
-                { "UserName", new AttributeValue { S = userName } },
-                { "Email", new AttributeValue { S = email } },
-                { "Password", new AttributeValue { S = password } },
-                { "CreatedAt", new AttributeValue { S = DateTime.UtcNow.ToString("o") } }
-            }
-        };
+                TableName = _settings.TableName,
+                Item = new Dictionary<string, AttributeValue>
+                {
+                    { "Email", new AttributeValue { S = user.Email } },
+                    { "UserName", new AttributeValue { S = user.UserName } },
+                    { "Password", new AttributeValue { S = user.PasswordHash } },
+                    // { "Favorites", new AttributeValue { S = user.Favorites } },
+                    // { "CreatedAt", new AttributeValue { S = user.CreatedAt } },
+                    { "Id", new AttributeValue { S = user.Id } },
+                }
+            };
 
-        await _dynamoDbClient.PutItemAsync(request);
-    }
+            await _dynamoDbClient.PutItemAsync(request);
+        }
 
-    public async Task<Dictionary<string, AttributeValue>> GetUserByEmailAsync(string email)
-    {
-        var request = new QueryRequest
+        public async Task<User> GetUserByEmailAsync(string email)
         {
-            TableName = _tableName,
-            KeyConditionExpression = "Email = :v_email",
-            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            var request = new QueryRequest
             {
-                { ":v_email", new AttributeValue { S = email } }
+                TableName = _settings.TableName,
+                KeyConditionExpression = "Email = :v_email",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    { ":v_email", new AttributeValue { S = email } }
+                }
+            };
+
+            var response = await _dynamoDbClient.QueryAsync(request);
+            if (response.Items.Count == 0)
+            {
+                return null;
             }
-        };
 
-        var response = await _dynamoDbClient.QueryAsync(request);
-        return response.Items.Count > 0 ? response.Items[0] : null;
-    }
+            var item = response.Items[0];
+            return new User
+            {
+                Email = item["Email"].S,
+                Id = item["Id"].S,
+                UserName = item["UserName"].S,
+                PasswordHash = item["Password"].S,
+                CreatedAt = DateTime.Parse(item["CreatedAt"].S),
+                // Favorites = item["Favorites"].S
+            };
+        }
 
-    public async Task SaveUserAsync(Dictionary<string, AttributeValue> user)
-    {
-        var request = new PutItemRequest
+        public string GenerateJwtToken(string email)
         {
-            TableName = _tableName,
-            Item = user
-        };
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.JwtKey));
+            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
-        await _dynamoDbClient.PutItemAsync(request);
+            var claims = new[]
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, email),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            };
+
+            var token = new JwtSecurityToken(
+                issuer: _settings.JwtIssuer,
+                audience: _settings.JwtAudience,
+                claims: claims,
+                expires: DateTime.Now.AddMinutes(120),
+                signingCredentials: credentials);
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
     }
 }
