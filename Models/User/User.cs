@@ -8,7 +8,7 @@ namespace Trnkt.Models
     [DynamoDBTable("Users")]
     public class User
     {
-        [DynamoDBHashKey] // Specify Email as the Hash Key (Partition Key)
+        [DynamoDBHashKey] // (Partition Key)
         public string Email { get; set; }
 
         [DynamoDBProperty]
@@ -19,6 +19,9 @@ namespace Trnkt.Models
 
         [DynamoDBProperty]
         public string PasswordHash { get; set; }
+
+        // [DynamoDBProperty]
+        // public string CreatedAt { get; set; }
 
         // [DynamoDBProperty(typeof(DateTimeConverter))]
         // public DateTime CreatedAt { get; set; }

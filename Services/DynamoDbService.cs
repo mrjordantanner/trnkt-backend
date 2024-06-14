@@ -1,5 +1,4 @@
 using Amazon.DynamoDBv2;
-using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -10,15 +9,16 @@ using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 using Trnkt.Models;
+using Trnkt.Configuration;
 
 namespace Trnkt.Services
 {
     public class DynamoDbService
     {
         private readonly IAmazonDynamoDB _dynamoDbClient;
-        private readonly DynamoDBSettings _settings;
+        private readonly AppConfig _settings;
 
-        public DynamoDbService(IAmazonDynamoDB dynamoDbClient, IOptions<DynamoDBSettings> settings)
+        public DynamoDbService(IAmazonDynamoDB dynamoDbClient, IOptions<AppConfig> settings)
         {
             _dynamoDbClient = dynamoDbClient;
             _settings = settings.Value;
@@ -50,9 +50,9 @@ namespace Trnkt.Services
                     { "Email", new AttributeValue { S = user.Email } },
                     { "UserName", new AttributeValue { S = user.UserName } },
                     { "Password", new AttributeValue { S = user.PasswordHash } },
-                    // { "Favorites", new AttributeValue { S = user.Favorites } },
-                    // { "CreatedAt", new AttributeValue { S = user.CreatedAt } },
-                    { "Id", new AttributeValue { S = user.Id } },
+                    //{ "CreatedAt", new AttributeValue { S = user.CreatedAt } },
+                    // { "CreatedAt", new AttributeValue { S = user.CreatedAt.ToString("o") } },
+                    { "Id", new AttributeValue { S = user.Id } }
                 }
             };
 
@@ -84,9 +84,75 @@ namespace Trnkt.Services
                 Id = item["Id"].S,
                 UserName = item["UserName"].S,
                 PasswordHash = item["Password"].S,
-                CreatedAt = DateTime.Parse(item["CreatedAt"].S),
-                // Favorites = item["Favorites"].S
+                //CreatedAt = item["CreatedAt"].S,
+                //CreatedAt = DateTime.Parse(item["CreatedAt"].S)
             };
+        }
+
+        public async Task ChangeUserNameAsync(string email, string newUserName)
+        {
+            var request = new UpdateItemRequest
+            {
+                TableName = _settings.TableName,
+                Key = new Dictionary<string, AttributeValue>
+                {
+                    { "Email", new AttributeValue { S = email } }
+                },
+                UpdateExpression = "SET UserName = :newUserName",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    { ":newUserName", new AttributeValue { S = newUserName } }
+                }
+            };
+
+            await _dynamoDbClient.UpdateItemAsync(request);
+        }
+
+        public async Task ChangeUserEmailAsync(string oldEmail, string newEmail)
+        {
+            var user = await GetUserByEmailAsync(oldEmail);
+            if (user == null)
+            {
+                throw new Exception("User not found");
+            }
+
+            await DeleteUserAsync(oldEmail);
+
+            user.Email = newEmail;
+            await CreateUserAsync(user);
+        }
+
+        public async Task ChangePasswordAsync(string email, string newPasswordHash)
+        {
+            var request = new UpdateItemRequest
+            {
+                TableName = _settings.TableName,
+                Key = new Dictionary<string, AttributeValue>
+                {
+                    { "Email", new AttributeValue { S = email } }
+                },
+                UpdateExpression = "SET Password = :newPasswordHash",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    { ":newPasswordHash", new AttributeValue { S = newPasswordHash } }
+                }
+            };
+
+            await _dynamoDbClient.UpdateItemAsync(request);
+        }
+
+        public async Task DeleteUserAsync(string email)
+        {
+            var request = new DeleteItemRequest
+            {
+                TableName = _settings.TableName,
+                Key = new Dictionary<string, AttributeValue>
+                {
+                    { "Email", new AttributeValue { S = email } }
+                }
+            };
+
+            await _dynamoDbClient.DeleteItemAsync(request);
         }
 
         public string GenerateJwtToken(string email)

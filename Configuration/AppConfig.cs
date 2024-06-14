@@ -1,6 +1,6 @@
-namespace Trnkt
+namespace Trnkt.Configuration
 {
-    public class DynamoDBSettings
+    public class AppConfig
     {
         public string TableName { get; set; }
         public string JwtKey { get; set; }
