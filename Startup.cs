@@ -1,3 +1,4 @@
+using System;
 using Amazon.DynamoDBv2;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -7,21 +8,23 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using System;
 using System.Text;
 using Trnkt.Services;
 using Trnkt.Configuration;
+
 
 namespace Trnkt
 {
     public class Startup
     {
-        public Startup(IConfiguration configuration)
+        public Startup(IConfiguration configuration, IWebHostEnvironment env)
         {
             Configuration = configuration;
+            Env = env;
         }
 
         public IConfiguration Configuration { get; }
+        public IWebHostEnvironment Env { get; }
 
         public void ConfigureServices(IServiceCollection services)
         {
@@ -29,21 +32,8 @@ namespace Trnkt
             services.AddHttpClient();
             services.AddLogging();
 
+            // Configure settings from configuration
             services.Configure<AppConfig>(Configuration.GetSection("AppConfig"));
-            // services.Configure<AppConfig>(options =>
-            // {
-            //     options.TableName = Configuration["AppConfig:TableName"];
-            //     options.JwtKey = Configuration["AppConfig:JwtKey"];
-            //     options.JwtIssuer = Configuration["AppConfig:JwtIssuer"];
-            //     options.JwtAudience = Configuration["AppConfig:JwtAudience"];
-            // });
-            // services.Configure<DynamoDBSettings>(options =>
-            // {
-            //     options.TableName = Configuration["DynamoDBSettings:TableName"];
-            //     options.JwtKey = Environment.GetEnvironmentVariable("JWT_KEY") ?? Configuration["DynamoDBSettings:JwtKey"];
-            //     options.JwtIssuer = Configuration["DynamoDBSettings:JwtIssuer"];
-            //     options.JwtAudience = Configuration["DynamoDBSettings:JwtAudience"];
-            // });
 
             var awsOptions = Configuration.GetAWSOptions();
             services.AddDefaultAWSOptions(awsOptions);
@@ -61,11 +51,16 @@ namespace Trnkt
                     });
             });
 
-            var jwtKey = Configuration["AppConfig:JwtKey"];
+            // Retrieve and validate JWT settings
+            var jwtKey = Env.IsProduction()
+                ? Environment.GetEnvironmentVariable("JWT_KEY")
+                : Configuration["AppConfig:JwtKey"];
+
             if (string.IsNullOrEmpty(jwtKey))
             {
                 throw new ArgumentNullException(nameof(jwtKey), "JWT Key is not configured.");
             }
+
             var key = Encoding.ASCII.GetBytes(jwtKey);
 
             services.AddAuthentication(x =>
@@ -82,9 +77,9 @@ namespace Trnkt
                     ValidateIssuerSigningKey = true,
                     IssuerSigningKey = new SymmetricSecurityKey(key),
                     ValidateIssuer = true,
-                    ValidIssuer = Configuration["DynamoDBSettings:JwtIssuer"],
+                    ValidIssuer = Configuration["AppConfig:JwtIssuer"],
                     ValidateAudience = true,
-                    ValidAudience = Configuration["DynamoDBSettings:JwtAudience"]
+                    ValidAudience = Configuration["AppConfig:JwtAudience"]
                 };
             });
 

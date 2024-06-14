@@ -47,9 +47,12 @@ yarn.lock
 amplify/#current-cloud-backend
 amplify/.config/local-*
 
-
-# Ignore development-related files and directories (customize as needed)
+# Ignore development-related files and directories
 .idea/
 __pycache__/
 *.iml
 *.ipynb_checkpoints/
+
+# Appsettings
+appsettings.Development.json
+appsettings.json
