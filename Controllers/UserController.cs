@@ -110,9 +110,9 @@ namespace Trnkt.Controllers
             {
                 return NotFound("User not found.");
             }
-
+            
             await _dynamoDbService.ChangeUserNameAsync(changeUserNameDto.Email, changeUserNameDto.NewUserName);
-            return Ok("User name updated successfully.");
+            return Ok($"User name successfully updated from {user.UserName} to {changeUserNameDto.NewUserName}.");
         }
 
         // Change User Email

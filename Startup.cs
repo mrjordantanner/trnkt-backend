@@ -42,6 +42,10 @@ namespace Trnkt
 
             services.AddCors(options =>
             {
+                // options.AddPolicy("AllowAll",
+                //     builder => builder.AllowAnyOrigin()
+                //         .AllowAnyMethod()
+                //         .AllowAnyHeader());
                 options.AddPolicy("AllowSpecificOrigin",
                     builder =>
                     {
