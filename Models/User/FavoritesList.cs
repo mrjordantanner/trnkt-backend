@@ -4,7 +4,9 @@ namespace Trnkt.Models
 {
     public class FavoritesList
     {
-        public string name { get; set; }
-        public List<Nft> nfts { get; set; }
+        public string UserId {get; set; }
+        public string ListId { get; set; }
+        public string Name { get; set; }
+        public List<Nft> Nfts { get; set; }
     }
 }

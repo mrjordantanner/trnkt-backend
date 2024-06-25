@@ -8,11 +8,12 @@ namespace Trnkt.Models
     [DynamoDBTable("Users")]
     public class User
     {
-        [DynamoDBHashKey] // (Partition Key)
+        // Partition Key
+        [DynamoDBHashKey] 
         public string Email { get; set; }
 
         [DynamoDBProperty]
-        public string Id { get; set; }
+        public string UserId { get; set; }
 
         [DynamoDBProperty]
         public string UserName { get; set; }
@@ -20,13 +21,7 @@ namespace Trnkt.Models
         [DynamoDBProperty]
         public string PasswordHash { get; set; }
 
-        // [DynamoDBProperty]
-        // public string CreatedAt { get; set; }
-
-        // [DynamoDBProperty(typeof(DateTimeConverter))]
-        // public DateTime CreatedAt { get; set; }
-
-        // [DynamoDBProperty("Favorites")] // Example for mapping to DynamoDB attribute
-        // public List<FavoritesList> Favorites { get; set; }
+        [DynamoDBProperty]
+        public string CreatedAt { get; set; }
     }
 }

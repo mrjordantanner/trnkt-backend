@@ -1,15 +1,22 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using Amazon.DynamoDBv2.DataModel;
+using Amazon.DynamoDBv2.DocumentModel;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.Logging;
 using System;
+using System.Linq;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 using Trnkt.Models;
+using Trnkt.Dtos;
 using Trnkt.Configuration;
+
 
 namespace Trnkt.Services
 {
@@ -17,142 +24,16 @@ namespace Trnkt.Services
     {
         private readonly IAmazonDynamoDB _dynamoDbClient;
         private readonly AppConfig _settings;
+        private readonly ILogger<DynamoDbService> _logger;
 
-        public DynamoDbService(IAmazonDynamoDB dynamoDbClient, IOptions<AppConfig> settings)
+        public DynamoDbService(
+            IAmazonDynamoDB dynamoDbClient, 
+            IOptions<AppConfig> settings, 
+            ILogger<DynamoDbService> logger)
         {
             _dynamoDbClient = dynamoDbClient;
             _settings = settings.Value;
-        }
-
-        public async Task<bool> UserExistsAsync(string email)
-        {
-            var request = new QueryRequest
-            {
-                TableName = _settings.TableName,
-                KeyConditionExpression = "Email = :v_email",
-                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-                {
-                    { ":v_email", new AttributeValue { S = email } }
-                }
-            };
-
-            var response = await _dynamoDbClient.QueryAsync(request);
-            return response.Items.Count > 0;
-        }
-
-        public async Task CreateUserAsync(User user)
-        {
-            var request = new PutItemRequest
-            {
-                TableName = _settings.TableName,
-                Item = new Dictionary<string, AttributeValue>
-                {
-                    { "Email", new AttributeValue { S = user.Email } },
-                    { "UserName", new AttributeValue { S = user.UserName } },
-                    { "Password", new AttributeValue { S = user.PasswordHash } },
-                    //{ "CreatedAt", new AttributeValue { S = user.CreatedAt } },
-                    // { "CreatedAt", new AttributeValue { S = user.CreatedAt.ToString("o") } },
-                    { "Id", new AttributeValue { S = user.Id } }
-                }
-            };
-
-            await _dynamoDbClient.PutItemAsync(request);
-        }
-
-        public async Task<User> GetUserByEmailAsync(string email)
-        {
-            var request = new QueryRequest
-            {
-                TableName = _settings.TableName,
-                KeyConditionExpression = "Email = :v_email",
-                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-                {
-                    { ":v_email", new AttributeValue { S = email } }
-                }
-            };
-
-            var response = await _dynamoDbClient.QueryAsync(request);
-            if (response.Items.Count == 0)
-            {
-                return null;
-            }
-
-            var item = response.Items[0];
-            return new User
-            {
-                Email = item["Email"].S,
-                Id = item["Id"].S,
-                UserName = item["UserName"].S,
-                PasswordHash = item["Password"].S,
-                //CreatedAt = item["CreatedAt"].S,
-                //CreatedAt = DateTime.Parse(item["CreatedAt"].S)
-            };
-        }
-
-        public async Task ChangeUserNameAsync(string email, string newUserName)
-        {
-            var request = new UpdateItemRequest
-            {
-                TableName = _settings.TableName,
-                Key = new Dictionary<string, AttributeValue>
-                {
-                    { "Email", new AttributeValue { S = email } }
-                },
-                UpdateExpression = "SET UserName = :newUserName",
-                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-                {
-                    { ":newUserName", new AttributeValue { S = newUserName } }
-                }
-            };
-
-            await _dynamoDbClient.UpdateItemAsync(request);
-        }
-
-        public async Task ChangeUserEmailAsync(string oldEmail, string newEmail)
-        {
-            var user = await GetUserByEmailAsync(oldEmail);
-            if (user == null)
-            {
-                throw new Exception("User not found");
-            }
-
-            await DeleteUserAsync(oldEmail);
-
-            user.Email = newEmail;
-            await CreateUserAsync(user);
-        }
-
-        public async Task ChangePasswordAsync(string email, string newPasswordHash)
-        {
-            var request = new UpdateItemRequest
-            {
-                TableName = _settings.TableName,
-                Key = new Dictionary<string, AttributeValue>
-                {
-                    { "Email", new AttributeValue { S = email } }
-                },
-                UpdateExpression = "SET Password = :newPasswordHash",
-                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-                {
-                    { ":newPasswordHash", new AttributeValue { S = newPasswordHash } }
-                }
-            };
-
-            await _dynamoDbClient.UpdateItemAsync(request);
-        }
-
-        public async Task DeleteUserAsync(string email)
-        {
-            var request = new DeleteItemRequest
-            {
-                TableName = _settings.TableName,
-                Key = new Dictionary<string, AttributeValue>
-                {
-                    { "Email", new AttributeValue { S = email } }
-                }
-            };
-
-            await _dynamoDbClient.DeleteItemAsync(request);
+            _logger = logger;
         }
 
         public string GenerateJwtToken(string email)
@@ -175,5 +56,167 @@ namespace Trnkt.Services
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
+
+        // Users
+        public async Task<bool> UserExistsAsync(string email)
+        {
+            var request = new QueryRequest
+            {
+                TableName = _settings.UsersTableName,
+                KeyConditionExpression = "Email = :v_email",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    { ":v_email", new AttributeValue { S = email } }
+                }
+            };
+
+            var response = await _dynamoDbClient.QueryAsync(request);
+            return response.Items.Count > 0;
+        }
+
+        public async Task CreateUserAsync(User user)
+        {
+            var request = new PutItemRequest
+            {
+                TableName = _settings.UsersTableName,
+                Item = new Dictionary<string, AttributeValue>
+                {
+                    { "Email", new AttributeValue { S = user.Email } },
+                    { "UserName", new AttributeValue { S = user.UserName } },
+                    { "Password", new AttributeValue { S = user.PasswordHash } },
+                    { "CreatedAt", new AttributeValue { S = user.CreatedAt } },
+                    { "UserId", new AttributeValue { S = user.UserId } }
+                }
+            };
+
+            await _dynamoDbClient.PutItemAsync(request);
+        }
+
+        public async Task<User> GetUserByEmailAsync(string email)
+        {
+            var request = new QueryRequest
+            {
+                TableName = _settings.UsersTableName,
+                KeyConditionExpression = "Email = :v_email",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    { ":v_email", new AttributeValue { S = email } }
+                }
+            };
+
+            var response = await _dynamoDbClient.QueryAsync(request);
+            if (response.Items.Count == 0)
+            {
+                return null;
+            }
+
+            var item = response.Items[0];
+            return new User
+            {
+                Email = item["Email"].S,
+                UserId = item["UserId"].S,
+                UserName = item["UserName"].S,
+                PasswordHash = item["Password"].S,
+                CreatedAt = item["CreatedAt"].S,
+                //CreatedAt = DateTime.Parse(item["CreatedAt"].S)
+            };
+        }
+
+        public async Task<List<User>> GetAllUsersAsync()
+        {
+            var request = new ScanRequest
+            {
+                TableName = _settings.UsersTableName
+            };
+
+            var response = await _dynamoDbClient.ScanAsync(request);
+            var users = new List<User>();
+
+            foreach (var item in response.Items)
+            {
+                var user = new User
+                {
+                    Email = item["Email"].S,
+                    UserId = item["UserId"].S,
+                    UserName = item["UserName"].S,
+                    PasswordHash = item["Password"].S,
+                    CreatedAt = item.ContainsKey("CreatedAt") ? item["CreatedAt"].S : null,
+                };
+                users.Add(user);
+            }
+
+            return users;
+        }
+
+        public async Task<User> UpdateUserInfoAsync(UpdateUserDto updateUserDto)
+        {
+            var user = await GetUserByEmailAsync(updateUserDto.Email);
+            if (user == null)
+            {
+                return null;
+            }
+
+            var updateItem = new Dictionary<string, AttributeValueUpdate>();
+
+            if (!string.IsNullOrEmpty(updateUserDto.NewEmail))
+            {
+                updateItem["Email"] = new AttributeValueUpdate
+                {
+                    Action = AttributeAction.PUT,
+                    Value = new AttributeValue { S = updateUserDto.NewEmail }
+                };
+                user.Email = updateUserDto.NewEmail;
+            }
+
+            if (!string.IsNullOrEmpty(updateUserDto.NewUserName))
+            {
+                updateItem["UserName"] = new AttributeValueUpdate
+                {
+                    Action = AttributeAction.PUT,
+                    Value = new AttributeValue { S = updateUserDto.NewUserName }
+                };
+                user.UserName = updateUserDto.NewUserName;
+            }
+
+            if (!string.IsNullOrEmpty(updateUserDto.NewPasswordHash))
+            {
+                updateItem["PasswordHash"] = new AttributeValueUpdate
+                {
+                    Action = AttributeAction.PUT,
+                    Value = new AttributeValue { S = updateUserDto.NewPasswordHash }
+                };
+                user.PasswordHash = updateUserDto.NewPasswordHash;
+            }
+
+            var request = new UpdateItemRequest
+            {
+                TableName = _settings.UsersTableName,
+                Key = new Dictionary<string, AttributeValue>
+                {
+                    { "Email", new AttributeValue { S = updateUserDto.Email } }
+                },
+                AttributeUpdates = updateItem
+            };
+
+            var response = await _dynamoDbClient.UpdateItemAsync(request);
+            Console.WriteLine("User successfully updated");
+            return user;
+        }
+
+        public async Task DeleteUserAsync(string email)
+        {
+            var request = new DeleteItemRequest
+            {
+                TableName = _settings.UsersTableName,
+                Key = new Dictionary<string, AttributeValue>
+                {
+                    { "Email", new AttributeValue { S = email } }
+                }
+            };
+
+            await _dynamoDbClient.DeleteItemAsync(request);
+        }
+
+
     }
 }

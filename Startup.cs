@@ -39,6 +39,7 @@ namespace Trnkt
             services.AddDefaultAWSOptions(awsOptions);
             services.AddAWSService<IAmazonDynamoDB>();
             services.AddSingleton<DynamoDbService>();
+            services.AddSingleton<IFavoritesRepository, FavoritesRepository>();
 
             services.AddCors(options =>
             {

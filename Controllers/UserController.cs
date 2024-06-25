@@ -31,23 +31,29 @@ namespace Trnkt.Controllers
         [HttpPost("users")]
         public async Task<IActionResult> CreateNewUser([FromBody] UserRegistrationDto userRegistrationDto)
         {
+            string logMessage;
             if (await _dynamoDbService.UserExistsAsync(userRegistrationDto.Email))
             {
-                return BadRequest("User already exists.");
+                // TODO add more logging
+                logMessage = "User already exists.";
+                _logger.LogError(logMessage);
+                return BadRequest(logMessage);
             }
 
             var user = new User
             {
-                Id = Guid.NewGuid().ToString(),
+                UserId = userRegistrationDto.UserId ?? Guid.NewGuid().ToString(),
                 UserName = userRegistrationDto.UserName,
                 Email = userRegistrationDto.Email,
                 PasswordHash = HashPassword(userRegistrationDto.Password),
-                //CreatedAt = DateTime.UtcNow.ToString("o")
-                //CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow.ToString("o"),
             };
 
             await _dynamoDbService.CreateUserAsync(user);
-            return Ok("User created successfully.");
+
+            logMessage = "User created successfully.";
+            _logger.LogInformation(logMessage);
+            return Ok(logMessage);
         }
 
         // Get User by Email
@@ -63,6 +69,14 @@ namespace Trnkt.Controllers
             return Ok(user);
         }
 
+        // Get all Users
+        [HttpGet("users/all")]
+        public async Task<IActionResult> GetAllUsers()
+        {
+            var users = await _dynamoDbService.GetAllUsersAsync();
+            return Ok(users);
+        }
+
         // Login User
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] UserLoginDto userLoginDto)
@@ -76,6 +90,7 @@ namespace Trnkt.Controllers
             var token = _dynamoDbService.GenerateJwtToken(user.Email);
 
             // Set the token in a cookie
+            // TODO are we using cookies?
             Response.Cookies.Append("jwt_token", token, new CookieOptions
             {
                 HttpOnly = true,
@@ -89,9 +104,10 @@ namespace Trnkt.Controllers
 
         // Logout User
         [HttpPost("logout")]
-        [Authorize]
+        //[Authorize]
         public IActionResult Logout()
         {
+            // TODO use cookies or not
             if (Request.Cookies.ContainsKey("jwt_token"))
             {
                 Response.Cookies.Delete("jwt_token");
@@ -100,54 +116,20 @@ namespace Trnkt.Controllers
             return Ok("User logged out successfully.");
         }
 
-        // Change User Name
-        [HttpPut("users/change-username")]
+        // Update User Info
+        [HttpPatch("users/update")]
         [Authorize]
-        public async Task<IActionResult> ChangeUserNameAsync([FromBody] ChangeUserNameDto changeUserNameDto)
+        public async Task<IActionResult> UpdateUserAsync([FromBody] UpdateUserDto updateUserDto)
         {
-            var user = await _dynamoDbService.GetUserByEmailAsync(changeUserNameDto.Email);
+            var user = await _dynamoDbService.UpdateUserInfoAsync(updateUserDto);
             if (user == null)
             {
-                return NotFound("User not found.");
-            }
-            
-            await _dynamoDbService.ChangeUserNameAsync(changeUserNameDto.Email, changeUserNameDto.NewUserName);
-            return Ok($"User name successfully updated from {user.UserName} to {changeUserNameDto.NewUserName}.");
-        }
-
-        // Change User Email
-        [HttpPut("users/change-email")]
-        [Authorize]
-        public async Task<IActionResult> ChangeUserEmailAsync([FromBody] ChangeUserEmailDto changeUserEmailDto)
-        {
-            var user = await _dynamoDbService.GetUserByEmailAsync(changeUserEmailDto.OldEmail);
-            if (user == null)
-            {
-                return NotFound("User not found.");
+                return NotFound("UpdateUserAsync returned null User.");
             }
 
-            await _dynamoDbService.ChangeUserEmailAsync(changeUserEmailDto.OldEmail, changeUserEmailDto.NewEmail);
-            return Ok("User email updated successfully.");
-        }
-
-        // Change Password
-        [HttpPut("users/change-password")]
-        [Authorize]
-        public async Task<IActionResult> ChangePasswordAsync([FromBody] ChangePasswordDto changePasswordDto)
-        {
-            var user = await _dynamoDbService.GetUserByEmailAsync(changePasswordDto.Email);
-            if (user == null)
-            {
-                return NotFound("User not found.");
-            }
-
-            if (!VerifyPassword(changePasswordDto.OldPassword, user.PasswordHash))
-            {
-                return BadRequest("Incorrect old password.");
-            }
-
-            await _dynamoDbService.ChangePasswordAsync(changePasswordDto.Email, HashPassword(changePasswordDto.NewPassword));
-            return Ok("Password updated successfully.");
+            // TODO make dynamo return user so don't have to fetch via email
+            // var updatedUser = await _dynamoDbService.GetUserByEmailAsync(updateUserDto.NewEmail ?? updateUserDto.Email);
+            return Ok(user);
         }
 
         // Delete User
@@ -166,18 +148,16 @@ namespace Trnkt.Controllers
         }
 
         // Password utilities
-        private bool VerifyPassword(string password, string hashedPassword)
+        private static bool VerifyPassword(string password, string hashedPassword)
         {
             return HashPassword(password) == hashedPassword;
         }
 
-        private string HashPassword(string password)
+        private static string HashPassword(string password)
         {
-            using (var sha256 = SHA256.Create())
-            {
-                var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-                return BitConverter.ToString(hashedBytes).Replace("-", "").ToLower();
-            }
+            using var sha256 = SHA256.Create();
+            var hashedBytes = SHA256.HashData(Encoding.UTF8.GetBytes(password));
+            return BitConverter.ToString(hashedBytes).Replace("-", "").ToLower();
         }
     }
 }
