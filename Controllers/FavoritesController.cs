@@ -1,24 +1,27 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.VisualBasic;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Trnkt.Models;
 using Trnkt.Services;
+using System.ComponentModel;
 
 
 namespace Trnkt.Controllers
 {
-
     [ApiController]
     [Route("api/[controller]")]
     public class FavoritesController : ControllerBase
     {
         private readonly IFavoritesRepository _favoritesRepository;
+        private readonly ILogger<FavoritesController> _logger;
 
-        public FavoritesController(IFavoritesRepository favoritesRepository)
+        public FavoritesController(IFavoritesRepository favoritesRepository, ILogger<FavoritesController> logger)
         {
             _favoritesRepository = favoritesRepository;
+            _logger = logger;
         }
 
         [HttpGet("{userId}")]
@@ -27,24 +30,33 @@ namespace Trnkt.Controllers
             var favorites = await _favoritesRepository.GetFavoritesAsync(userId);
             if (favorites == null)
             {
-                Console.WriteLine($"ERROR: FavoritesController/GetFavoritesAsync. Favorites for userId {userId} Not Found!");
+                _logger.LogError("FavoritesController/GetFavoritesAsync. Favorites for userId {userId} not found!", userId);
                 return NotFound();
             }
             return Ok(favorites);
         }
 
         [HttpPost("{userId}")]
-        public async Task<IActionResult> AddToFavoritesAsync(string userId, [FromBody] FavoritesList list)
+        public async Task<IActionResult> UpdateFavoritesAsync(string userId, [FromBody] FavoritesList[] lists)
         {
-            if (list == null)
+            if (lists == null)
             {
-                Console.WriteLine($"ERROR: FavoritesController/AddToFavoritesAsync. FavoritesList from Request Body was null!");
+                _logger.LogError("FavoritesController/UpdateFavoritesAsync. FavoritesLists from Request Body was null!");
                 return BadRequest();
             }
 
-            Console.WriteLine($"FavoritesController/AddToFavoritesAsync.  UserId: {userId}, FavoritesList.Nfts.Count: {list.Nfts.Count}");
+            _logger.LogInformation("FavoritesController/UpdateFavoritesAsync.  UserId: {userId}, FavoritesLists.Count: {count}", userId, lists.Length);
 
-            await _favoritesRepository.AddToFavoritesAsync(userId, list);
+            await _favoritesRepository.UpdateFavoritesAsync(userId, lists);
+            return Ok();
+        }
+
+        [HttpDelete("{userId}")]
+        public async Task<IActionResult> DeleteFavoritesAsync(string userId)
+        {
+            _logger.LogInformation("FavoritesController/DeleteFavoritesAsync. Deleting favorites for userId: {userId}", userId);
+
+            await _favoritesRepository.DeleteFavoritesAsync(userId);
             return Ok();
         }
     }

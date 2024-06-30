@@ -85,37 +85,52 @@ namespace Trnkt.Services
             }
         }
 
-        public async Task AddToFavoritesAsync(string userId, FavoritesList list)
+public async Task UpdateFavoritesAsync(string userId, FavoritesList[] updatedLists)
+{
+    if (updatedLists == null)
+    {
+        _logger.LogError($"UpdateFavoritesAsync-- Update failed. Argument 'updatedLists' was null.");
+        return;
+    }
+
+    bool isModified = false;
+    var userFavorites = await GetFavoritesAsync(userId) ?? new UserFavorites { UserId = userId, Favorites = new List<FavoritesList>() };
+
+    foreach (var updatedList in updatedLists)
+    {
+        var existingList = userFavorites.Favorites.FirstOrDefault(fl => fl.ListId == updatedList.ListId);
+
+        // If the ListId already exists, perform comparisons to check for changes
+        if (existingList != null)
         {
-            var userFavorites = await GetFavoritesAsync(userId) ?? new UserFavorites { UserId = userId, Favorites = new List<FavoritesList>() };
+            bool nftsAreDifferent = existingList.Nfts.Count != updatedList.Nfts.Count ||
+                                    !existingList.Nfts.All(nft => updatedList.Nfts.Any(uNft => uNft.Identifier == nft.Identifier));
 
-            if (list == null) 
+            // If changes are found, update the ExistingList's properties with the UpdatedList's properties
+            if (existingList.Name != updatedList.Name || nftsAreDifferent)
             {
-                _logger.LogWarning($"AddToFavoritesAsync-- Add failed. Parameter 'FavoritesList' was null.");
-                return;
+                existingList.Name = updatedList.Name;
+                existingList.Nfts = updatedList.Nfts;
+                isModified = true;
+                _logger.LogInformation($"Updated existing Favorites List. UserId: {userId}, ListId: {updatedList.ListId}, Name: {updatedList.Name}, NFT Count: {updatedList.Nfts.Count}");
             }
+        }
+        // If the ListId did not previously exist, add it to Favorites as a new List
+        else
+        {
+            userFavorites.Favorites.Add(updatedList);
+            isModified = true;
+            _logger.LogInformation("Added new Favorites List {listName} for User {userId}", updatedList.Name, userId);
+        }
+    }
 
-            _logger.LogInformation($"AddToFavoritesAsync--  UserId: {userId}, ListId: {list.ListId}, Name: {list.Name}, NFT Count: {list.Nfts.Count}");
-
-            var existingList = userFavorites.Favorites.FirstOrDefault(fl => fl.ListId == list.ListId);
-            if (existingList != null)
-            {
-                existingList.Name = list.Name;
-                existingList.Nfts = list.Nfts;
-                _logger.LogInformation($"Found existing Favorites List.  UserId: {userId}, ListId: {list.ListId}, Name: {list.Name}, NFT Count: {list.Nfts.Count}");
-            }
-            else
-            {
-                userFavorites.Favorites.Add(list);
-                _logger.LogInformation("Added new Favorites List {listName} for User {userId}", list.Name, userId);
-            }
-
-            _logger.LogInformation("Favorites: {count}", userFavorites.Favorites.Count);
-
-            var putItemRequest = new PutItemRequest
-            {
-                TableName = _settings.FavoritesTableName,
-                Item = new Dictionary<string, AttributeValue>
+    // If changes were detected, write the new FavoritesLists data to DynamoDb
+    if (isModified)
+    {
+        var putItemRequest = new PutItemRequest
+        {
+            TableName = _settings.FavoritesTableName,
+            Item = new Dictionary<string, AttributeValue>
             {
                 { "UserId", new AttributeValue { S = userFavorites.UserId } },
                 { "Favorites", new AttributeValue
@@ -147,17 +162,47 @@ namespace Trnkt.Services
                     }
                 }
             }
+        };
+
+        try
+        {
+            await _dynamoDbClient.PutItemAsync(putItemRequest);
+            _cache[userId] = userFavorites; // Update the cache after successful write
+            _logger.LogInformation("Favorites updated successfully for User {userId}", userId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error updating Favorites for User {userId}", ex);
+            throw;
+        }
+    }
+    else
+    {
+        _logger.LogInformation("No changes detected for User {userId}", userId);
+    }
+}
+
+
+        public async Task DeleteFavoritesAsync(string userId)
+        {
+            var key = new Dictionary<string, AttributeValue>
+            {
+                { "UserId", new AttributeValue { S = userId } }
+            };
+
+            var deleteItemRequest = new DeleteItemRequest
+            {
+                TableName = _settings.FavoritesTableName,
+                Key = key
             };
 
             try
             {
-                await _dynamoDbClient.PutItemAsync(putItemRequest);
-                _cache[userId] = userFavorites; // Update the cache after successful write
+                await _dynamoDbClient.DeleteItemAsync(deleteItemRequest);
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error adding/updating Favorites for User {userId}", ex);
-                throw;
+                _logger.LogError($"Error deleting Favorites for User {userId}", ex);
             }
         }
 
