@@ -99,7 +99,7 @@ namespace Trnkt.Controllers
                 Expires = DateTime.UtcNow.AddMinutes(120)
             });
 
-            return Ok(new { Token = token });
+            return Ok(new { User = user, Token = token });
         }
 
         // Logout User
