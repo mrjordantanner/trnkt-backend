@@ -17,6 +17,8 @@ namespace Trnkt.Models
         public bool IsDisabled { get; set; }
         public bool IsNsfw { get; set; }
         public string AnimationUrl { get; set; }
+        public string DisplayAnimationUrl { get; set; }
+        public string DisplayImageUrl { get; set; }
         public bool IsSuspicious { get; set; }
         public string Creator { get; set; }
         public List<Trait> Traits { get; set; }
