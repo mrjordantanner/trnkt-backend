@@ -12,7 +12,6 @@ using System.Text;
 using Trnkt.Services;
 using Trnkt.Configuration;
 
-
 namespace Trnkt
 {
     public class Startup
@@ -43,16 +42,13 @@ namespace Trnkt
 
             services.AddCors(options =>
             {
-                // options.AddPolicy("AllowAll",
-                //     builder => builder.AllowAnyOrigin()
-                //         .AllowAnyMethod()
-                //         .AllowAnyHeader());
                 options.AddPolicy("AllowSpecificOrigin",
                     builder =>
                     {
                         builder.WithOrigins("http://localhost:5173")
                                .AllowAnyHeader()
-                               .AllowAnyMethod();
+                               .AllowAnyMethod()
+                               .AllowCredentials();
                     });
             });
 
