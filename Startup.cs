@@ -31,7 +31,6 @@ namespace Trnkt
             services.AddHttpClient();
             services.AddLogging();
 
-            // Configure settings from configuration
             services.Configure<AppConfig>(Configuration.GetSection("AppConfig"));
 
             var awsOptions = Configuration.GetAWSOptions();
@@ -40,19 +39,25 @@ namespace Trnkt
             services.AddSingleton<DynamoDbService>();
             services.AddSingleton<IFavoritesRepository, FavoritesRepository>();
 
+            var allowedOrigins = new[] 
+            {
+                "http://localhost:5173",
+                "https://main.d1e3pjok0vhnb.amplifyapp.com",
+                "https://trnkt.jordansmithdigital.com",
+            };
+
             services.AddCors(options =>
             {
                 options.AddPolicy("AllowSpecificOrigin",
                     builder =>
                     {
-                        builder.WithOrigins("http://localhost:5173")
-                               .AllowAnyHeader()
-                               .AllowAnyMethod()
-                               .AllowCredentials();
+                        builder.WithOrigins(allowedOrigins)
+                            .AllowAnyHeader()
+                            .AllowAnyMethod()
+                            .AllowCredentials();
                     });
             });
 
-            // Retrieve and validate JWT settings
             var jwtKey = Env.IsProduction()
                 ? Environment.GetEnvironmentVariable("JWT_KEY")
                 : Configuration["AppConfig:JwtKey"];
