@@ -39,24 +39,35 @@ namespace Trnkt
             services.AddSingleton<DynamoDbService>();
             services.AddSingleton<IFavoritesRepository, FavoritesRepository>();
 
-            var allowedOrigins = new[] 
-            {
-                "http://localhost:5173",
-                "https://main.d1e3pjok0vhnb.amplifyapp.com",
-                "https://trnkt.jordansmithdigital.com",
-            };
+            // var allowedOrigins = new[] 
+            // {
+            //     "http://localhost:5173",
+            //     "https://main.d1e3pjok0vhnb.amplifyapp.com",
+            //     "https://trnkt.jordansmithdigital.com",
+            // };
 
-            services.AddCors(options =>
-            {
-                options.AddPolicy("AllowSpecificOrigin",
-                    builder =>
-                    {
-                        builder.WithOrigins(allowedOrigins)
-                            .AllowAnyHeader()
-                            .AllowAnyMethod()
-                            .AllowCredentials();
-                    });
-            });
+            // services.AddCors(options =>
+            // {
+            //     options.AddPolicy("AllowSpecificOrigin",
+            //         builder =>
+            //         {
+            //             builder.WithOrigins(allowedOrigins)
+            //                 .AllowAnyHeader()
+            //                 .AllowAnyMethod()
+            //                 .AllowCredentials();
+            //         });
+            // });
+
+                services.AddCors(options =>
+                {
+                    options.AddPolicy("AllowAllOrigins",
+                        builder =>
+                        {
+                            builder.AllowAnyOrigin()
+                                .AllowAnyMethod()
+                                .AllowAnyHeader();
+                        });
+                });
 
             var jwtKey = Env.IsProduction()
                 ? Environment.GetEnvironmentVariable("JWT_KEY")
@@ -134,7 +145,8 @@ namespace Trnkt
             app.UseStaticFiles();
             app.UseRouting();
 
-            app.UseCors("AllowSpecificOrigin");
+            //app.UseCors("AllowSpecificOrigin");
+            app.UseCors("AllowAllOrigins");
 
             app.UseAuthentication();
             app.UseAuthorization();
