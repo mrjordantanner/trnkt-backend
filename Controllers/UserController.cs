@@ -91,13 +91,13 @@ namespace Trnkt.Controllers
 
             // Set the token in a cookie
             // TODO are we using cookies?
-            Response.Cookies.Append("jwt_token", token, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTime.UtcNow.AddMinutes(120)
-            });
+            // Response.Cookies.Append("jwt_token", token, new CookieOptions
+            // {
+            //     HttpOnly = true,
+            //     Secure = true,
+            //     SameSite = SameSiteMode.Strict,
+            //     Expires = DateTime.UtcNow.AddMinutes(120)
+            // });
 
             return Ok(new { User = user, Token = token });
         }
@@ -108,10 +108,10 @@ namespace Trnkt.Controllers
         public IActionResult Logout()
         {
             // TODO use cookies or not
-            if (Request.Cookies.ContainsKey("jwt_token"))
-            {
-                Response.Cookies.Delete("jwt_token");
-            }
+            // if (Request.Cookies.ContainsKey("jwt_token"))
+            // {
+            //     Response.Cookies.Delete("jwt_token");
+            // }
 
             return Ok("User logged out successfully.");
         }

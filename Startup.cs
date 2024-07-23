@@ -42,7 +42,7 @@ namespace Trnkt
             // var allowedOrigins = new[] 
             // {
             //     "http://localhost:5173",
-            //     "https://main.d1e3pjok0vhnb.amplifyapp.com",
+            //     "https://main.dxq2smeges624.amplifyapp.com/",
             //     "https://trnkt.jordansmithdigital.com",
             // };
 
