@@ -42,7 +42,7 @@ namespace Trnkt
             // var allowedOrigins = new[] 
             // {
             //     "http://localhost:5173",
-            //     "https://main.dxq2smeges624.amplifyapp.com/",
+            //     "https://main.dxq2smeges624.amplifyapp.com",
             //     "https://trnkt.jordansmithdigital.com",
             // };
 
@@ -129,6 +129,17 @@ namespace Trnkt
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
+            // Handle trailing slashes in urls
+            app.Use(async (context, next) =>
+            {
+                if (context.Request.Path.HasValue && context.Request.Path.Value.EndsWith("/"))
+                {
+                    context.Request.Path = context.Request.Path.Value.TrimEnd('/');
+                }
+
+                await next();
+            });
+
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
