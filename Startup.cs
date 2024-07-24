@@ -64,8 +64,9 @@ namespace Trnkt
                         builder =>
                         {
                             builder.AllowAnyOrigin()
-                                .AllowAnyMethod()
-                                .AllowAnyHeader();
+                                .WithMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
+                                .AllowAnyHeader()
+                                .AllowCredentials();
                         });
                 });
 
