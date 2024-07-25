@@ -2,7 +2,7 @@
 
 ## Overview
 
-TRNKT is an NFT art gallery that consumes the OpenSea API to showcase a curated collection of NFTs. The backend is built using ASP.NET and DynamoDB to manage and store NFT data efficiently. This is an ongoing project, and contributions are welcome.
+TRNKT is an NFT art gallery that consumes the OpenSea API to showcase a curated collection of NFTs. The backend is built using ASP.NET and DynamoDB to manage and store NFT data efficiently. This is an ongoing project, and contributions are welcome!
 
 ## Technologies Used
 
