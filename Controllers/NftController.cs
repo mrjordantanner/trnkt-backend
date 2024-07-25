@@ -100,7 +100,6 @@ namespace Trnkt.Controllers
                 {
                     var data = await response.Content.ReadAsStringAsync();
                     _logger.LogInformation("Successfully fetched data from {endpoint}", endpoint);
-                    // Return JSON content
                     return Content(data, "application/json");
                 }
                 else

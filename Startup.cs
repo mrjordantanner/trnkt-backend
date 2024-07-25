@@ -65,8 +65,7 @@ namespace Trnkt
                         {
                             builder.AllowAnyOrigin()
                                 .WithMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
-                                .AllowAnyHeader()
-                                .AllowCredentials();
+                                .AllowAnyHeader();
                         });
                 });
 
@@ -153,12 +152,12 @@ namespace Trnkt
                 app.UseHsts();
             }
 
+            //app.UseCors("AllowSpecificOrigin");
+            app.UseCors("AllowAllOrigins");
+
             app.UseHttpsRedirection();
             app.UseStaticFiles();
             app.UseRouting();
-
-            //app.UseCors("AllowSpecificOrigin");
-            app.UseCors("AllowAllOrigins");
 
             app.UseAuthentication();
             app.UseAuthorization();
