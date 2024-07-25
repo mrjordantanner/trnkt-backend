@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Net.Http;
@@ -11,23 +13,46 @@ namespace Trnkt.Controllers
     [ApiController]
     public class NftController : ControllerBase
     {
-        private readonly IHttpClientFactory _httpClientFactory;
-        private readonly IConfiguration _configuration;
-        private readonly ILogger<NftController> _logger;
-        private readonly string baseUrl;
-        private readonly string apiKey;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<NftController> _logger;
+    private readonly IWebHostEnvironment _env;
+    private readonly string baseUrl;
+    private readonly string apiKey;
+    private readonly string jwtKey;
 
-        public NftController(
-            IHttpClientFactory httpClientFactory,
-            IConfiguration configuration,
-            ILogger<NftController> logger)
+    public NftController(
+        IHttpClientFactory httpClientFactory,
+        IConfiguration configuration,
+        ILogger<NftController> logger,
+        IWebHostEnvironment env)
+    {
+        _httpClientFactory = httpClientFactory;
+        _configuration = configuration;
+        _logger = logger;
+        _env = env;
+        baseUrl = "https://api.opensea.io/api/v2";
+
+        // Determine the API key based on the environment
+        apiKey = _env.IsProduction()
+            ? Environment.GetEnvironmentVariable("OPENSEA_API_KEY")
+            : _configuration["OPENSEA_API_KEY"];
+
+        if (string.IsNullOrEmpty(apiKey))
         {
-            _httpClientFactory = httpClientFactory;
-            _configuration = configuration;
-            _logger = logger;
-            baseUrl = "https://api.opensea.io/api/v2";
-            apiKey = _configuration["OPENSEA_API_KEY"];
+            throw new ArgumentNullException(nameof(apiKey), "Opensea API Key is not configured.");
         }
+
+        // Determine the JWT key based on the environment
+        jwtKey = _env.IsProduction()
+            ? Environment.GetEnvironmentVariable("JWT_KEY")
+            : _configuration["AppConfig:JwtKey"];
+
+        if (string.IsNullOrEmpty(jwtKey))
+        {
+            throw new ArgumentNullException(nameof(jwtKey), "JWT Key is not configured.");
+        }
+    }
 
         [HttpGet("fetchNft/{chain}/{address}/{id}")]
         public async Task<IActionResult> GetNftAsync(string chain, string address, string id)
