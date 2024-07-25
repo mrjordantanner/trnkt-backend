@@ -1,6 +1,7 @@
 using System;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Trnkt
 {
@@ -8,7 +9,15 @@ namespace Trnkt
     {
         public static void Main(string[] args)
         {
-            CreateHostBuilder(args).Build().Run();
+            try
+            {
+                CreateHostBuilder(args).Build().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Unhandled exception: {ex.Message}");
+                throw;
+            }
         }
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
@@ -16,7 +25,12 @@ namespace Trnkt
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.UseStartup<Startup>()
-                              .UseUrls("http://*:" + (Environment.GetEnvironmentVariable("PORT") ?? "5000"));
+                              .ConfigureLogging(logging =>
+                              {
+                                  logging.ClearProviders();
+                                  logging.AddConsole();
+                              });
                 });
     }
+
 }
