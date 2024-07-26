@@ -64,8 +64,7 @@ namespace Trnkt
 
             services.Configure<AppConfig>(Configuration.GetSection("AppConfig"));
 
-            var awsOptions = Configuration.GetAWSOptions();
-            services.AddDefaultAWSOptions(awsOptions);
+            services.AddDefaultAWSOptions(Configuration.GetAWSOptions());
             services.AddAWSService<IAmazonDynamoDB>();
             services.AddSingleton<DynamoDbService>();
             services.AddSingleton<IFavoritesRepository, FavoritesRepository>();
