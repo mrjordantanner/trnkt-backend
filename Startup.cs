@@ -19,13 +19,11 @@ namespace Trnkt
     {
         public IConfiguration Configuration { get; }
         public IWebHostEnvironment Env { get; }
-        private readonly ILogger<Startup> _logger;
 
-        public Startup(IConfiguration configuration, IWebHostEnvironment env, ILogger<Startup> logger)
+        public Startup(IConfiguration configuration, IWebHostEnvironment env)
         {
             Configuration = configuration;
             Env = env;
-            _logger = logger;
         }
 
         public void ConfigureServices(IServiceCollection services)
@@ -72,23 +70,9 @@ namespace Trnkt
             services.AddSingleton<DynamoDbService>();
             services.AddSingleton<IFavoritesRepository, FavoritesRepository>();
 
-            // JWT Test 1
             var jwtKey = Env.IsProduction()
                 ? Environment.GetEnvironmentVariable("AppConfig:JwtKey")
                 : Configuration["AppConfig:JwtKey"];
-
-            _logger.LogInformation($"== Environment.IsProduction: {Env.IsProduction()} ==");
-            _logger.LogInformation($"== AppConfig:JwtKey: {jwtKey} ==");
-
-            // JWT Test 1
-            var testKey = Environment.GetEnvironmentVariable("AppConfig:JwtKey");
-            _logger.LogInformation($"== AppConfig:JwtKey: {testKey} ==");
-            // JWT Test 2
-            var testKey2 = Environment.GetEnvironmentVariable("AppConfig.JwtKey");
-            _logger.LogInformation($"== AppConfig.JwtKey: {testKey2} ==");
-            // JWT Test 3
-            var testKey3 = Environment.GetEnvironmentVariable("AppConfig__JwtKey");
-            _logger.LogInformation($"== AppConfig__JwtKey: {testKey3} ==");
 
             if (string.IsNullOrEmpty(jwtKey))
             {
