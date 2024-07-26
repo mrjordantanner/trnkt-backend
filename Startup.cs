@@ -71,7 +71,7 @@ namespace Trnkt
             services.AddSingleton<IFavoritesRepository, FavoritesRepository>();
 
             var jwtKey = Env.IsProduction()
-                ? Environment.GetEnvironmentVariable("AppConfig:JwtKey")
+                ? Environment.GetEnvironmentVariable("AppConfig__JwtKey")
                 : Configuration["AppConfig:JwtKey"];
 
             if (string.IsNullOrEmpty(jwtKey))

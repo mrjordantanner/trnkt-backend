@@ -45,7 +45,7 @@ namespace Trnkt.Controllers
 
         // Determine the JWT key based on the environment
         jwtKey = _env.IsProduction()
-            ? Environment.GetEnvironmentVariable("JWT_KEY")
+            ? Environment.GetEnvironmentVariable("AppConfig__JwtKey")
             : _configuration["AppConfig:JwtKey"];
 
         if (string.IsNullOrEmpty(jwtKey))
