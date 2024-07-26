@@ -69,9 +69,23 @@ namespace Trnkt
             services.AddSingleton<DynamoDbService>();
             services.AddSingleton<IFavoritesRepository, FavoritesRepository>();
 
+            // JWT Test 1
             var jwtKey = Env.IsProduction()
-                ? Environment.GetEnvironmentVariable("AppConfig__JwtKey")
+                ? Environment.GetEnvironmentVariable("AppConfig:JwtKey")
                 : Configuration["AppConfig:JwtKey"];
+
+            Console.WriteLine($"== Environment.IsProduction: {Env.IsProduction()} ==");
+            Console.WriteLine($"== AppConfig:JwtKey: {jwtKey} ==");
+
+            // JWT Test 1
+            var testKey = Environment.GetEnvironmentVariable("AppConfig:JwtKey");
+            Console.WriteLine($"== AppConfig:JwtKey: {testKey} ==");
+            // JWT Test 2
+            var testKey2 = Environment.GetEnvironmentVariable("AppConfig.JwtKey");
+            Console.WriteLine($"== AppConfig.JwtKey: {testKey2} ==");
+            // JWT Test 3
+            var testKey3 = Environment.GetEnvironmentVariable("AppConfig__JwtKey");
+            Console.WriteLine($"== AppConfig__JwtKey: {testKey3} ==");
 
             if (string.IsNullOrEmpty(jwtKey))
             {
