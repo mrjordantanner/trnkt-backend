@@ -70,7 +70,7 @@ namespace Trnkt
             services.AddSingleton<IFavoritesRepository, FavoritesRepository>();
 
             var jwtKey = Env.IsProduction()
-                ? Environment.GetEnvironmentVariable("JWT_KEY")
+                ? Environment.GetEnvironmentVariable("AppConfig__JwtKey")
                 : Configuration["AppConfig:JwtKey"];
 
             if (string.IsNullOrEmpty(jwtKey))
@@ -94,9 +94,9 @@ namespace Trnkt
                     ValidateIssuerSigningKey = true,
                     IssuerSigningKey = new SymmetricSecurityKey(key),
                     ValidateIssuer = true,
-                    ValidIssuer = Configuration["AppConfig:JwtIssuer"],
+                    ValidIssuer = Env.IsProduction() ? Environment.GetEnvironmentVariable("AppConfig__JwtIssuer") : Configuration["AppConfig:JwtIssuer"],
                     ValidateAudience = true,
-                    ValidAudience = Configuration["AppConfig:JwtAudience"]
+                    ValidAudience = Env.IsProduction() ? Environment.GetEnvironmentVariable("AppConfig__JwtAudience") : Configuration["AppConfig:JwtAudience"]
                 };
             });
 
