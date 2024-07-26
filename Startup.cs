@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
@@ -16,14 +17,16 @@ namespace Trnkt
 {
     public class Startup
     {
-        public Startup(IConfiguration configuration, IWebHostEnvironment env)
+        public IConfiguration Configuration { get; }
+        public IWebHostEnvironment Env { get; }
+        private readonly ILogger<Startup> _logger;
+
+        public Startup(IConfiguration configuration, IWebHostEnvironment env, ILogger<Startup> logger)
         {
             Configuration = configuration;
             Env = env;
+            _logger = logger;
         }
-
-        public IConfiguration Configuration { get; }
-        public IWebHostEnvironment Env { get; }
 
         public void ConfigureServices(IServiceCollection services)
         {
@@ -74,18 +77,18 @@ namespace Trnkt
                 ? Environment.GetEnvironmentVariable("AppConfig:JwtKey")
                 : Configuration["AppConfig:JwtKey"];
 
-            Console.WriteLine($"== Environment.IsProduction: {Env.IsProduction()} ==");
-            Console.WriteLine($"== AppConfig:JwtKey: {jwtKey} ==");
+            _logger.LogInformation($"== Environment.IsProduction: {Env.IsProduction()} ==");
+            _logger.LogInformation($"== AppConfig:JwtKey: {jwtKey} ==");
 
             // JWT Test 1
             var testKey = Environment.GetEnvironmentVariable("AppConfig:JwtKey");
-            Console.WriteLine($"== AppConfig:JwtKey: {testKey} ==");
+            _logger.LogInformation($"== AppConfig:JwtKey: {testKey} ==");
             // JWT Test 2
             var testKey2 = Environment.GetEnvironmentVariable("AppConfig.JwtKey");
-            Console.WriteLine($"== AppConfig.JwtKey: {testKey2} ==");
+            _logger.LogInformation($"== AppConfig.JwtKey: {testKey2} ==");
             // JWT Test 3
             var testKey3 = Environment.GetEnvironmentVariable("AppConfig__JwtKey");
-            Console.WriteLine($"== AppConfig__JwtKey: {testKey3} ==");
+            _logger.LogInformation($"== AppConfig__JwtKey: {testKey3} ==");
 
             if (string.IsNullOrEmpty(jwtKey))
             {
