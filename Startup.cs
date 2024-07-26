@@ -27,18 +27,6 @@ namespace Trnkt
 
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddControllers();
-            services.AddHttpClient();
-            services.AddLogging();
-
-            services.Configure<AppConfig>(Configuration.GetSection("AppConfig"));
-
-            var awsOptions = Configuration.GetAWSOptions();
-            services.AddDefaultAWSOptions(awsOptions);
-            services.AddAWSService<IAmazonDynamoDB>();
-            services.AddSingleton<DynamoDbService>();
-            services.AddSingleton<IFavoritesRepository, FavoritesRepository>();
-
             // var allowedOrigins = new[] 
             // {
             //     "http://localhost:5173",
@@ -58,16 +46,29 @@ namespace Trnkt
             //         });
             // });
 
-                services.AddCors(options =>
-                {
-                    options.AddPolicy("AllowAllOrigins",
-                        builder =>
-                        {
-                            builder.AllowAnyOrigin()
-                                .WithMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
-                                .AllowAnyHeader();
-                        });
-                });
+            services.AddCors(options =>
+            {
+                options.AddPolicy("AllowAllOrigins",
+                    builder =>
+                    {
+                        builder
+                            .AllowAnyOrigin()
+                            .AllowAnyMethod()
+                            .AllowAnyHeader();
+                    });
+            });
+
+            services.AddControllers();
+            services.AddHttpClient();
+            services.AddLogging();
+
+            services.Configure<AppConfig>(Configuration.GetSection("AppConfig"));
+
+            var awsOptions = Configuration.GetAWSOptions();
+            services.AddDefaultAWSOptions(awsOptions);
+            services.AddAWSService<IAmazonDynamoDB>();
+            services.AddSingleton<DynamoDbService>();
+            services.AddSingleton<IFavoritesRepository, FavoritesRepository>();
 
             var jwtKey = Env.IsProduction()
                 ? Environment.GetEnvironmentVariable("JWT_KEY")
@@ -130,15 +131,15 @@ namespace Trnkt
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             // Handle trailing slashes in urls
-            app.Use(async (context, next) =>
-            {
-                if (context.Request.Path.HasValue && context.Request.Path.Value.EndsWith("/"))
-                {
-                    context.Request.Path = context.Request.Path.Value.TrimEnd('/');
-                }
+            // app.Use(async (context, next) =>
+            // {
+            //     if (context.Request.Path.HasValue && context.Request.Path.Value.EndsWith("/"))
+            //     {
+            //         context.Request.Path = context.Request.Path.Value.TrimEnd('/');
+            //     }
 
-                await next();
-            });
+            //     await next();
+            // });
 
             if (env.IsDevelopment())
             {
@@ -152,13 +153,11 @@ namespace Trnkt
                 app.UseHsts();
             }
 
+            app.UseHttpsRedirection();
+            app.UseRouting();
+            app.UseStaticFiles();
             //app.UseCors("AllowSpecificOrigin");
             app.UseCors("AllowAllOrigins");
-
-            app.UseHttpsRedirection();
-            app.UseStaticFiles();
-            app.UseRouting();
-
             app.UseAuthentication();
             app.UseAuthorization();
 
