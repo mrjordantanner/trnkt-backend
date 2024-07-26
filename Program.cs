@@ -25,11 +25,13 @@ namespace Trnkt
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.UseStartup<Startup>()
-                              .ConfigureLogging(logging =>
-                              {
-                                  logging.ClearProviders();
-                                  logging.AddConsole();
-                              });
+                        .ConfigureLogging(logging =>
+                        {
+                            logging.ClearProviders();
+                            logging.AddConsole();
+                        });
+                        
+                    webBuilder.UseUrls("http://*:8080");
                 });
     }
 
