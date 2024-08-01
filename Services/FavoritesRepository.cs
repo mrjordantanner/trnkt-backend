@@ -210,7 +210,7 @@ namespace Trnkt.Services
                 };
 
                 var getItemResponse = await _dynamoDbClient.GetItemAsync(getItemRequest);
-                if (!getItemResponse.Item.Any())
+                if (getItemResponse.Item.Count == 0)
                 {
                     _logger.LogError($"UserFavorites for User {userId} not found.");
                     return;
@@ -317,7 +317,8 @@ namespace Trnkt.Services
                         Contract = nft.M["Contract"].S,
                         Name = nft.M["Name"].S,
                         ImageUrl = nft.M["ImageUrl"].S,
-                        AnimationUrl = nft.M["AnimationUrl"].S
+                        AnimationUrl = nft.M["AnimationUrl"].S,
+                        OpenseaUrl = nft.M["OpenseaUrl"].S
                     }).ToList()
                 }).ToList()
             };
@@ -371,6 +372,7 @@ namespace Trnkt.Services
                                                                         { "Name", new AttributeValue { S = nft.Name ?? string.Empty } },
                                                                         { "ImageUrl", new AttributeValue { S = nft.ImageUrl ?? string.Empty } },
                                                                         { "AnimationUrl", new AttributeValue { S = nft.AnimationUrl ?? string.Empty } },
+                                                                        { "OpenseaUrl", new AttributeValue { S = nft.OpenseaUrl ?? string.Empty } },
                                                                     }
                                                                 };
                                                             }).ToList() ?? new List<AttributeValue>()
@@ -430,6 +432,7 @@ namespace Trnkt.Services
                                                         { "Name", new AttributeValue { S = nft.Name ?? string.Empty } },
                                                         { "ImageUrl", new AttributeValue { S = nft.ImageUrl ?? string.Empty } },
                                                         { "AnimationUrl", new AttributeValue { S = nft.AnimationUrl ?? string.Empty } },
+                                                        { "OpenseaUrl", new AttributeValue { S = nft.OpenseaUrl ?? string.Empty } },
                                                     }
                                                 }).ToList() ?? new List<AttributeValue>()
                                             }
