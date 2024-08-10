@@ -69,14 +69,33 @@ namespace Trnkt
 
             //services.AddDefaultAWSOptions(Configuration.GetAWSOptions());
 
-            var awsOptions = Configuration.GetAWSOptions();
-            awsOptions.Credentials = new BasicAWSCredentials(
-                Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID"),
-                Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY")
-            );
-            awsOptions.Region = RegionEndpoint.GetBySystemName(Environment.GetEnvironmentVariable("AWS_REGION"));
+            var accessKeyId = Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID");
+            var secretAccessKey = Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY");
+            //var region = Environment.GetEnvironmentVariable("AWS_REGION");
 
-            services.AddDefaultAWSOptions(awsOptions);
+            //Console.WriteLine($"AccessKeyId: {accessKeyId}");
+            //Console.WriteLine($"secretAccessKey: {secretAccessKey}");
+            //Console.WriteLine($"region: {region}");
+
+            //if (string.IsNullOrEmpty(accessKeyId) || string.IsNullOrEmpty(secretAccessKey) || string.IsNullOrEmpty(region))
+            //{
+            //    throw new Exception("AWS credentials or region are not set in the environment variables.");
+            //}
+
+            var awsOptions = Configuration.GetAWSOptions();
+            awsOptions.Credentials = new BasicAWSCredentials(accessKeyId, secretAccessKey);
+            //awsOptions.Region = RegionEndpoint.GetBySystemName(region);
+            awsOptions.Region = RegionEndpoint.USEast1;
+
+            //var awsOptions = Configuration.GetAWSOptions();
+            //awsOptions.Credentials = new BasicAWSCredentials(
+            //    Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID"),
+            //    Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY")
+            //);
+            //awsOptions.Region = RegionEndpoint.GetBySystemName(Environment.GetEnvironmentVariable("AWS_REGION"));
+            //awsOptions.Region = RegionEndpoint.USEast1;
+
+            //services.AddDefaultAWSOptions(awsOptions);
             services.AddAWSService<IAmazonDynamoDB>();
             services.AddSingleton<DynamoDbService>();
 
