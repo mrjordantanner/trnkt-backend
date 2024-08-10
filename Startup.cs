@@ -1,4 +1,6 @@
 using System;
+using Amazon;
+using Amazon.Runtime;
 using Amazon.DynamoDBv2;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -65,7 +67,19 @@ namespace Trnkt
 
             services.Configure<AppConfig>(Configuration.GetSection("AppConfig"));
 
-            services.AddDefaultAWSOptions(Configuration.GetAWSOptions());
+            //services.AddDefaultAWSOptions(Configuration.GetAWSOptions());
+
+            var awsOptions = Configuration.GetAWSOptions();
+            awsOptions.Credentials = new BasicAWSCredentials(
+                Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID"),
+                Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY")
+            );
+            awsOptions.Region = RegionEndpoint.GetBySystemName(Environment.GetEnvironmentVariable("AWS_REGION"));
+
+            services.AddDefaultAWSOptions(awsOptions);
+            services.AddAWSService<IAmazonDynamoDB>();
+            services.AddSingleton<DynamoDbService>();
+
             services.AddAWSService<IAmazonDynamoDB>();
             services.AddSingleton<DynamoDbService>();
             services.AddSingleton<IFavoritesRepository, FavoritesRepository>();
