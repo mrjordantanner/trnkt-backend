@@ -140,7 +140,7 @@ namespace Trnkt.Services
                     UserId = item["UserId"].S,
                     UserName = item["UserName"].S,
                     PasswordHash = item["Password"].S,
-                    CreatedAt = item.ContainsKey("CreatedAt") ? item["CreatedAt"].S : null,
+                    CreatedAt = item.TryGetValue("CreatedAt", out AttributeValue value) ? value.S : null,
                 };
                 users.Add(user);
             }
@@ -199,7 +199,7 @@ namespace Trnkt.Services
             };
 
             var response = await _dynamoDbClient.UpdateItemAsync(request);
-            Console.WriteLine("User successfully updated");
+            _logger.LogInformation("User successfully updated.");
             return user;
         }
 
@@ -215,6 +215,7 @@ namespace Trnkt.Services
             };
 
             await _dynamoDbClient.DeleteItemAsync(request);
+            _logger.LogInformation("User successfully deleted.");
         }
 
 

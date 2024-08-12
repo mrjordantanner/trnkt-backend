@@ -1,19 +1,18 @@
 using System;
+using System.Text;
 using Amazon;
-using Amazon.Runtime;
 using Amazon.DynamoDBv2;
+using Amazon.Runtime;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using System.Text;
-using Trnkt.Services;
 using Trnkt.Configuration;
+using Trnkt.Services;
 
 namespace Trnkt
 {
@@ -30,34 +29,24 @@ namespace Trnkt
 
         public void ConfigureServices(IServiceCollection services)
         {
-            // var allowedOrigins = new[] 
-            // {
-            //     "http://localhost:5173",
-            //     "https://main.dxq2smeges624.amplifyapp.com",
-            //     "https://trnkt.jordansmithdigital.com",
-            // };
-
-            // services.AddCors(options =>
-            // {
-            //     options.AddPolicy("AllowSpecificOrigin",
-            //         builder =>
-            //         {
-            //             builder.WithOrigins(allowedOrigins)
-            //                 .AllowAnyHeader()
-            //                 .AllowAnyMethod()
-            //                 .AllowCredentials();
-            //         });
-            // });
+            var allowedOrigins = new[]
+            {
+                 "http://localhost:5173",
+                 "https://trnkt.jordansmithdigital.com",
+                 "https://main.dxq2smeges624.amplifyapp.com"
+            };
 
             services.AddCors(options =>
             {
-                options.AddPolicy("AllowAllOrigins",
+                //options.AddPolicy("AllowAllOrigins",
+                options.AddPolicy("AllowSpecificOrigin",
                     builder =>
                     {
-                        builder
-                            .AllowAnyOrigin()
+                        //builder.AllowAnyOrigin()
+                        builder.WithOrigins(allowedOrigins)
+                            .AllowAnyHeader()
                             .AllowAnyMethod()
-                            .AllowAnyHeader();
+                            .AllowCredentials();
                     });
             });
 
@@ -67,37 +56,19 @@ namespace Trnkt
 
             services.Configure<AppConfig>(Configuration.GetSection("AppConfig"));
 
-            //services.AddDefaultAWSOptions(Configuration.GetAWSOptions());
-
             var accessKeyId = Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID");
             var secretAccessKey = Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY");
             //var region = Environment.GetEnvironmentVariable("AWS_REGION");
 
-            //Console.WriteLine($"AccessKeyId: {accessKeyId}");
-            //Console.WriteLine($"secretAccessKey: {secretAccessKey}");
-            //Console.WriteLine($"region: {region}");
-
-            //if (string.IsNullOrEmpty(accessKeyId) || string.IsNullOrEmpty(secretAccessKey) || string.IsNullOrEmpty(region))
-            //{
-            //    throw new Exception("AWS credentials or region are not set in the environment variables.");
-            //}
+            if (string.IsNullOrEmpty(accessKeyId) || string.IsNullOrEmpty(secretAccessKey))
+            {
+                throw new ArgumentNullException("AWS Credentials are not configured.");
+            }
 
             var awsOptions = Configuration.GetAWSOptions();
             awsOptions.Credentials = new BasicAWSCredentials(accessKeyId, secretAccessKey);
             //awsOptions.Region = RegionEndpoint.GetBySystemName(region);
             awsOptions.Region = RegionEndpoint.USEast1;
-
-            //var awsOptions = Configuration.GetAWSOptions();
-            //awsOptions.Credentials = new BasicAWSCredentials(
-            //    Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID"),
-            //    Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY")
-            //);
-            //awsOptions.Region = RegionEndpoint.GetBySystemName(Environment.GetEnvironmentVariable("AWS_REGION"));
-            //awsOptions.Region = RegionEndpoint.USEast1;
-
-            //services.AddDefaultAWSOptions(awsOptions);
-            services.AddAWSService<IAmazonDynamoDB>();
-            services.AddSingleton<DynamoDbService>();
 
             services.AddAWSService<IAmazonDynamoDB>();
             services.AddSingleton<DynamoDbService>();
@@ -163,17 +134,6 @@ namespace Trnkt
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
-            // Handle trailing slashes in urls
-            // app.Use(async (context, next) =>
-            // {
-            //     if (context.Request.Path.HasValue && context.Request.Path.Value.EndsWith("/"))
-            //     {
-            //         context.Request.Path = context.Request.Path.Value.TrimEnd('/');
-            //     }
-
-            //     await next();
-            // });
-
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
@@ -189,8 +149,8 @@ namespace Trnkt
             app.UseHttpsRedirection();
             app.UseRouting();
             app.UseStaticFiles();
-            //app.UseCors("AllowSpecificOrigin");
-            app.UseCors("AllowAllOrigins");
+            app.UseCors("AllowSpecificOrigin");
+            //app.UseCors("AllowAllOrigins");
             app.UseAuthentication();
             app.UseAuthorization();
 

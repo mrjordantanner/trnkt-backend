@@ -1,16 +1,14 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
-using System.Collections.Generic;
-using System;
+﻿using System;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
-using System.Web;
-using Trnkt.Services;
-using Trnkt.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Trnkt.Dtos;
+using Trnkt.Models;
+using Trnkt.Services;
 
 namespace Trnkt.Controllers
 {
@@ -20,6 +18,8 @@ namespace Trnkt.Controllers
     {
         private readonly DynamoDbService _dynamoDbService;
         private readonly ILogger<UserController> _logger;
+
+        private readonly int _tokenLifetimeMinutes = 360;
 
         public UserController(DynamoDbService dynamoDbService, ILogger<UserController> logger)
         {
@@ -34,8 +34,7 @@ namespace Trnkt.Controllers
             string logMessage;
             if (await _dynamoDbService.UserExistsAsync(userRegistrationDto.Email))
             {
-                // TODO add more logging
-                logMessage = "User already exists.";
+                logMessage = $"Register: Error -- User email {userRegistrationDto.Email} already exists.";
                 _logger.LogError(logMessage);
                 return BadRequest(logMessage);
             }
@@ -51,7 +50,7 @@ namespace Trnkt.Controllers
 
             await _dynamoDbService.CreateUserAsync(user);
 
-            logMessage = "User created successfully.";
+            logMessage = $"Register: User {user.UserName} / {user.UserId} created successfully.";
             _logger.LogInformation(logMessage);
             return Ok(logMessage);
         }
@@ -84,21 +83,23 @@ namespace Trnkt.Controllers
             var user = await _dynamoDbService.GetUserByEmailAsync(userLoginDto.Email);
             if (user == null || !VerifyPassword(userLoginDto.Password, user.PasswordHash))
             {
-                return Unauthorized("Invalid email or password.");
+                var message = "Login: Invalid email or password.";
+                _logger.LogError(message);
+                return Unauthorized(message);
             }
 
             var token = _dynamoDbService.GenerateJwtToken(user.Email);
 
             // Set the token in a cookie
-            // TODO are we using cookies?
-            // Response.Cookies.Append("jwt_token", token, new CookieOptions
-            // {
-            //     HttpOnly = true,
-            //     Secure = true,
-            //     SameSite = SameSiteMode.Strict,
-            //     Expires = DateTime.UtcNow.AddMinutes(120)
-            // });
+            Response.Cookies.Append("jwt_token", token, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTime.UtcNow.AddMinutes(_tokenLifetimeMinutes)
+            });
 
+            _logger.LogInformation("Login: JWT token generated. User {name} / {id} logged in successfully.", user.UserName, user.UserId);
             return Ok(new { User = user, Token = token });
         }
 
@@ -107,13 +108,15 @@ namespace Trnkt.Controllers
         //[Authorize]
         public IActionResult Logout()
         {
-            // TODO use cookies or not
-            // if (Request.Cookies.ContainsKey("jwt_token"))
-            // {
-            //     Response.Cookies.Delete("jwt_token");
-            // }
+            if (Request.Cookies.ContainsKey("jwt_token"))
+            {
+                Response.Cookies.Delete("jwt_token");
+                _logger.LogInformation("Logout: JWT token was found and deleted.");
+            }
 
-            return Ok("User logged out successfully.");
+            var message = "Logout: User logged out successfully.";
+            _logger.LogInformation(message);
+            return Ok(message);
         }
 
         // Update User Info
@@ -124,11 +127,13 @@ namespace Trnkt.Controllers
             var user = await _dynamoDbService.UpdateUserInfoAsync(updateUserDto);
             if (user == null)
             {
-                return NotFound("UpdateUserAsync returned null User.");
+                var errorMessage = "Update: UpdateUserAsync returned null User.";
+                _logger.LogError(errorMessage);
+                return NotFound(errorMessage);
             }
 
-            // TODO make dynamo return user so don't have to fetch via email
-            // var updatedUser = await _dynamoDbService.GetUserByEmailAsync(updateUserDto.NewEmail ?? updateUserDto.Email);
+            var message = $"Update: User {user.UserName} / {user.UserId} updated successfully.";
+            _logger.LogInformation(message);
             return Ok(user);
         }
 
@@ -144,7 +149,10 @@ namespace Trnkt.Controllers
             }
 
             await _dynamoDbService.DeleteUserAsync(email);
-            return Ok("User deleted successfully.");
+
+            var message = $"Delete: User {user.UserName} / {user.UserId} deleted successfully.";
+            _logger.LogInformation(message);
+            return Ok(message);
         }
 
         // Password utilities

@@ -3,6 +3,7 @@
 Thumbs.db
 
 # Build and output directories
+publish/
 bin/
 obj/
 node_modules/
