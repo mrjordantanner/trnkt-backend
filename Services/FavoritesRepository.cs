@@ -99,13 +99,13 @@ namespace Trnkt.Services
                 return null;
             }
 
-            foreach (var list in updatedLists)
-            {
-                foreach (var nft in list.Nfts)
-                {   
-                    Console.WriteLine($"NFT from params: {nft.Name}, ImgUrl: {nft.ImageUrl}");
-                }
-            }
+            //foreach (var list in updatedLists)
+            //{
+            //    foreach (var nft in list.Nfts)
+            //    {   
+            //        Console.WriteLine($"NFT from params: {nft.Name}, ImgUrl: {nft.ImageUrl}");
+            //    }
+            //}
 
             bool isModified = false;
             var userFavorites = await GetFavoritesAsync(userId) ?? new UserFavorites { UserId = userId, Favorites = new List<FavoritesList>() };
@@ -171,7 +171,7 @@ namespace Trnkt.Services
         }
 
         // DELETE entire UserFavorites object
-        public async Task DeleteUserFavoritesAsync(string userId)
+        public async Task<bool> DeleteUserFavoritesAsync(string userId)
         {
             var key = new Dictionary<string, AttributeValue>
             {
@@ -186,64 +186,113 @@ namespace Trnkt.Services
 
             try
             {
-                await _dynamoDbClient.DeleteItemAsync(deleteItemRequest);
+                var response = await _dynamoDbClient.DeleteItemAsync(deleteItemRequest);
+                return ((int)response.HttpStatusCode < 300);
             }
             catch (Exception ex)
             {
                 _logger.LogError($"Error deleting Favorites for User {userId}", ex);
+                return false;
             }
         }
-        
+
+        //// DELETE an individual FavoritesList from a UserFavorites
+        //public async Task DeleteFavoritesListAsync(string userId, string listIdToDelete)
+        //{
+        //    try
+        //    {
+        //        // Fetch the existing UserFavorites object
+        //        var getItemRequest = new GetItemRequest
+        //        {
+        //            TableName = _settings.FavoritesTableName,
+        //            Key = new Dictionary<string, AttributeValue>
+        //            {
+        //                { "UserId", new AttributeValue { S = userId } }
+        //            }
+        //        };
+
+        //        var getItemResponse = await _dynamoDbClient.GetItemAsync(getItemRequest);
+        //        if (getItemResponse.Item.Count == 0)
+        //        {
+        //            _logger.LogError($"UserFavorites for User {userId} not found.");
+        //            return;
+        //        }
+
+        //        var userFavorites = MapDynamoDbItemToUserFavorites(getItemResponse.Item);
+
+        //        // Remove the specified FavoritesList
+        //        var updatedFavoritesLists = userFavorites.Favorites
+        //            .Where(list => list.ListId != listIdToDelete)
+        //            .ToList();
+
+        //        if (updatedFavoritesLists.Count == userFavorites.Favorites.Count)
+        //        {
+        //            _logger.LogError($"FavoritesList {listIdToDelete} not found for User {userId}.");
+        //            return;
+        //        }
+
+        //        userFavorites.Favorites = updatedFavoritesLists;
+
+        //        // Update the UserFavorites object in DynamoDB
+        //        var updateItemRequest = CreateUpdateItemRequest(userFavorites);
+        //        await _dynamoDbClient.UpdateItemAsync(updateItemRequest);
+
+        //        _logger.LogInformation($"FavoritesList {listIdToDelete} deleted for User {userId}.");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError($"Error deleting FavoritesList {listIdToDelete} for User {userId}", ex);
+        //    }
+        //}
+
         // DELETE an individual FavoritesList from a UserFavorites
-        public async Task DeleteFavoritesListAsync(string userId, string listIdToDelete)
+        public async Task<bool> DeleteFavoritesListAsync(string userId, string listIdToDelete)
         {
             try
             {
-                // Fetch the existing UserFavorites object
-                var getItemRequest = new GetItemRequest
+                // Define the update expression to remove the specific FavoritesList
+                var updateExpression = "REMOVE Favorites[" +
+                                       "listIdToDelete]" +
+                                       "";
+
+                // Create the request to update the UserFavorites object
+                var updateItemRequest = new UpdateItemRequest
                 {
                     TableName = _settings.FavoritesTableName,
                     Key = new Dictionary<string, AttributeValue>
                     {
                         { "UserId", new AttributeValue { S = userId } }
-                    }
+                    },
+                    UpdateExpression = updateExpression,
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                    {
+                        { ":listIdToDelete", new AttributeValue { S = listIdToDelete } }
+                    },
+                    ConditionExpression = "contains(Favorites, :listIdToDelete)" // Ensure the item exists before trying to delete it
                 };
 
-                var getItemResponse = await _dynamoDbClient.GetItemAsync(getItemRequest);
-                if (getItemResponse.Item.Count == 0)
+                // Execute the update request
+                var updateItemResponse = await _dynamoDbClient.UpdateItemAsync(updateItemRequest);
+
+                if (updateItemResponse == null)
                 {
-                    _logger.LogError($"UserFavorites for User {userId} not found.");
-                    return;
+                    _logger.LogError($"FavoritesList {listIdToDelete} not found or could not be deleted for User {userId}.");
+                    return false;
                 }
-
-                var userFavorites = MapDynamoDbItemToUserFavorites(getItemResponse.Item);
-
-                // Remove the specified FavoritesList
-                var updatedFavoritesLists = userFavorites.Favorites
-                    .Where(list => list.ListId != listIdToDelete)
-                    .ToList();
-
-                if (updatedFavoritesLists.Count == userFavorites.Favorites.Count)
-                {
-                    _logger.LogError($"FavoritesList {listIdToDelete} not found for User {userId}.");
-                    return;
-                }
-
-                userFavorites.Favorites = updatedFavoritesLists;
-
-                // Update the UserFavorites object in DynamoDB
-                var updateItemRequest = CreateUpdateItemRequest(userFavorites);
-                await _dynamoDbClient.UpdateItemAsync(updateItemRequest);
 
                 _logger.LogInformation($"FavoritesList {listIdToDelete} deleted for User {userId}.");
+                return true;
             }
             catch (Exception ex)
             {
                 _logger.LogError($"Error deleting FavoritesList {listIdToDelete} for User {userId}", ex);
+                return false;
             }
         }
 
-        public async Task DeleteNftFromFavoritesListAsync(string userId, string listId, string nftIdToDelete)
+
+        // DELETE individual NFT from a FavoritesList
+        public async Task<bool> DeleteNftFromFavoritesListAsync(string userId, string listId, string nftIdToDelete)
         {
             try
             {
@@ -259,10 +308,10 @@ namespace Trnkt.Services
 
                 var getItemResponse = await _dynamoDbClient.GetItemAsync(getItemRequest);
 
-                if (!getItemResponse.Item.Any())
+                if (getItemResponse.Item == null || !getItemResponse.Item.Any())
                 {
                     _logger.LogWarning($"UserFavorites for User {userId} not found.");
-                    return;
+                    return false;
                 }
 
                 var userFavorites = MapDynamoDbItemToUserFavorites(getItemResponse.Item);
@@ -273,31 +322,39 @@ namespace Trnkt.Services
                 if (favoritesList == null)
                 {
                     _logger.LogWarning($"FavoritesList {listId} not found for User {userId}.");
-                    return;
+                    return false;
                 }
 
-                // Remove the specified NFT from the FavoritesList
-                var updatedNfts = favoritesList.Nfts.Where(nft => nft.Identifier != nftIdToDelete).ToList();
+                // Check if the specified NFT exists in the FavoritesList
+                var nftExists = favoritesList.Nfts.Any(nft => nft.Identifier == nftIdToDelete);
 
-                if (updatedNfts.Count == favoritesList.Nfts.Count)
+                if (!nftExists)
                 {
                     _logger.LogWarning($"Nft {nftIdToDelete} not found in FavoritesList {listId} for User {userId}.");
-                    return;
+                    return false;
                 }
 
-                favoritesList.Nfts = updatedNfts;
+                // Update the UserFavorites object in DynamoDB using the new UpdateItemRequest
+                var updateItemRequest = CreateUpdateItemRequest(userFavorites, listId, nftIdToDelete);
+                var response = await _dynamoDbClient.UpdateItemAsync(updateItemRequest);
 
-                // Update the UserFavorites object in DynamoDB
-                var updateItemRequest = CreateUpdateItemRequest(userFavorites);
-                await _dynamoDbClient.UpdateItemAsync(updateItemRequest);
-                
-                _logger.LogInformation($"Nft {nftIdToDelete} removed from FavoritesList {listId} for User {userId}.");
+                if ((int)response.HttpStatusCode < 300)
+                {
+                    _logger.LogInformation($"Nft {nftIdToDelete} removed from FavoritesList {listId} for User {userId}.");
+                    return true;
+                }
+
+                _logger.LogError("FavoritesRepository: DeleteNftFromFavoritesList failed with status code {code}", response.HttpStatusCode);
+                return false;
+
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error removing Nft {nftIdToDelete} from FavoritesList {listId} for User {userId}", ex);
+                _logger.LogError($"Error removing Nft {nftIdToDelete} from FavoritesList {listId} for User {userId}: {ex.Message}", ex);
+                return false;
             }
         }
+
 
         // HELPERS
         // Mappers and DynamoDB Helper Methods
@@ -387,9 +444,36 @@ namespace Trnkt.Services
             };
         }
 
-        private UpdateItemRequest CreateUpdateItemRequest(UserFavorites userFavorites)
+        // Create an UpdateItemRequest to remove an individual NFT from a FavoritesList
+        private UpdateItemRequest CreateUpdateItemRequest(UserFavorites userFavorites, string listId, string nftIdentifierToRemove)
         {
-            // TODO add null and empty string checks?
+            _logger.LogInformation("Creating UpdateItemRequest...");
+
+            var updateExpressions = new List<string>();
+            var expressionAttributeNames = new Dictionary<string, string>();
+
+            var favoritesListIndex = userFavorites.Favorites.FindIndex(list => list.ListId == listId);
+            if (favoritesListIndex == -1)
+            {
+                _logger.LogError($"FavoritesList with ListId {listId} not found.");
+                return null;
+            }
+
+            var nftIndexToRemove = userFavorites.Favorites[favoritesListIndex].Nfts.FindIndex(nft => nft.Identifier == nftIdentifierToRemove);
+            if (nftIndexToRemove == -1)
+            {
+                _logger.LogError($"NFT with Identifier {nftIdentifierToRemove} not found in FavoritesList {listId}.");
+                return null;
+            }
+
+            // Build the update expression for removing the NFT
+            var updateExpression = $"REMOVE #Favorites[{favoritesListIndex}].#Nfts[{nftIndexToRemove}]";
+
+            expressionAttributeNames["#Favorites"] = "Favorites";
+            expressionAttributeNames["#Nfts"] = "Nfts";
+
+            _logger.LogWarning($"UpdateExpression: {updateExpression}");
+
             return new UpdateItemRequest
             {
                 TableName = _settings.FavoritesTableName,
@@ -397,54 +481,12 @@ namespace Trnkt.Services
                 {
                     { "UserId", new AttributeValue { S = userFavorites.UserId } }
                 },
-                AttributeUpdates = new Dictionary<string, AttributeValueUpdate>
-                {
-                    {
-                        "Favorites", new AttributeValueUpdate
-                        {
-                            Action = AttributeAction.PUT,
-                            Value = new AttributeValue
-                            {
-                                L = userFavorites.Favorites?
-                                    .Where(fl => fl != null &&
-                                                !string.IsNullOrEmpty(fl.ListId) &&
-                                                !string.IsNullOrEmpty(fl.Name) &&
-                                                fl.Nfts != null &&
-                                                fl.Nfts.Count > 0)
-                                    .Select(fl => new AttributeValue
-                                {
-                                    M = new Dictionary<string, AttributeValue>
-                                    {
-                                        { "ListId", new AttributeValue { S = fl.ListId } },
-                                        { "Name", new AttributeValue { S = fl.Name } },
-                                        { "Nfts", new AttributeValue
-                                            {
-                                                L = fl.Nfts?
-                                                .Where(nft => nft != null &&
-                                                            !string.IsNullOrEmpty(nft.Identifier))
-                                                .Select(nft => new AttributeValue
-                                                {
-                                                    M = new Dictionary<string, AttributeValue>
-                                                    {
-                                                        { "Identifier", new AttributeValue { S = nft.Identifier ?? string.Empty } },
-                                                        { "Collection", new AttributeValue { S = nft.Collection ?? string.Empty } },
-                                                        { "Contract", new AttributeValue { S = nft.Contract ?? string.Empty } },
-                                                        { "Name", new AttributeValue { S = nft.Name ?? string.Empty } },
-                                                        { "ImageUrl", new AttributeValue { S = nft.ImageUrl ?? string.Empty } },
-                                                        { "AnimationUrl", new AttributeValue { S = nft.AnimationUrl ?? string.Empty } },
-                                                        { "OpenseaUrl", new AttributeValue { S = nft.OpenseaUrl ?? string.Empty } },
-                                                    }
-                                                }).ToList() ?? new List<AttributeValue>()
-                                            }
-                                        }
-                                    }
-                                }).ToList() ?? new List<AttributeValue>()
-                            }
-                        }
-                    }
-                }
+                UpdateExpression = updateExpression,
+                ExpressionAttributeNames = expressionAttributeNames
             };
         }
+
+
 
         // Logging Helper Methods
         private string SerializeAttributeValue(AttributeValue value)

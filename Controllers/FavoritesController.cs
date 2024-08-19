@@ -100,7 +100,7 @@ namespace Trnkt.Controllers
             return Ok();
         }
 
-        [HttpDelete("{userId}/{listId}/{nftId}")]
+        [HttpPatch("{userId}/{listId}/{nftId}")]
         //[Authorize]
         public async Task<IActionResult> DeleteNftFromFavoritesListAsync(string userId, string listId, string nftId)
         {

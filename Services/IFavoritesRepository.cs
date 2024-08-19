@@ -8,8 +8,8 @@ namespace Trnkt.Services
     {
         public Task<UserFavorites> GetFavoritesAsync(string userId);
         public Task<UserFavorites> UpdateFavoritesAsync(string userId, FavoritesList[] lists);
-        public Task DeleteUserFavoritesAsync(string userId);
-        public Task DeleteFavoritesListAsync(string userId, string listIdToDelete);
-        public Task DeleteNftFromFavoritesListAsync(string userId, string listId, string nftIdToDelete);
+        public Task<bool> DeleteUserFavoritesAsync(string userId);
+        public Task<bool> DeleteFavoritesListAsync(string userId, string listIdToDelete);
+        public Task<bool> DeleteNftFromFavoritesListAsync(string userId, string listId, string nftIdToDelete);
     }
 }
