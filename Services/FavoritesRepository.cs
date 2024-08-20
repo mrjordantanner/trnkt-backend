@@ -30,6 +30,40 @@ namespace Trnkt.Services
             _cache = new Dictionary<string, UserFavorites>();
         }
 
+        // Get UserFavorites for given UserId
+        public async Task<UserFavorites> GetUserFavoritesAsync(string userId)
+        {
+            try
+            {
+                // Fetch the existing UserFavorites object
+                var getItemRequest = new GetItemRequest
+                {
+                    TableName = _settings.FavoritesTableName,
+                    Key = new Dictionary<string, AttributeValue>
+                    {
+                        { "UserId", new AttributeValue { S = userId } }
+                    }
+                };
+
+                var getItemResponse = await _dynamoDbClient.GetItemAsync(getItemRequest);
+
+                if (getItemResponse.Item == null || getItemResponse.Item.Count == 0)
+                {
+                    _logger.LogWarning($"UserFavorites for User {userId} not found.");
+                    return null;
+                }
+
+                return MapDynamoDbItemToUserFavorites(getItemResponse.Item);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"UserFavorites for User {userId} not found: {ex}");
+                return null;
+            }
+        }
+
+        // Get UserFavorites for given UserId with additional logic
+        // TODO may need refactoring
         public async Task<UserFavorites> GetFavoritesAsync(string userId)
         {
             // TODO refactor this logic for when to return cached values and when to hit DynamoDb
@@ -90,7 +124,8 @@ namespace Trnkt.Services
             }
         }
 
-        // Update Favorites STEP 5
+        // UPDATE Favorites STEP 5
+        // TODO refactor using DynamoDb update instead of replacing entire object?
         public async Task<UserFavorites> UpdateFavoritesAsync(string userId, FavoritesList[] updatedLists)
         {
             if (updatedLists == null)
@@ -170,7 +205,7 @@ namespace Trnkt.Services
             }
         }
 
-        // DELETE entire UserFavorites object
+        // DELETE entire UserFavorites object - This only gets used when a User's account is deleted
         public async Task<bool> DeleteUserFavoritesAsync(string userId)
         {
             var key = new Dictionary<string, AttributeValue>
@@ -196,64 +231,29 @@ namespace Trnkt.Services
             }
         }
 
-        //// DELETE an individual FavoritesList from a UserFavorites
-        //public async Task DeleteFavoritesListAsync(string userId, string listIdToDelete)
-        //{
-        //    try
-        //    {
-        //        // Fetch the existing UserFavorites object
-        //        var getItemRequest = new GetItemRequest
-        //        {
-        //            TableName = _settings.FavoritesTableName,
-        //            Key = new Dictionary<string, AttributeValue>
-        //            {
-        //                { "UserId", new AttributeValue { S = userId } }
-        //            }
-        //        };
-
-        //        var getItemResponse = await _dynamoDbClient.GetItemAsync(getItemRequest);
-        //        if (getItemResponse.Item.Count == 0)
-        //        {
-        //            _logger.LogError($"UserFavorites for User {userId} not found.");
-        //            return;
-        //        }
-
-        //        var userFavorites = MapDynamoDbItemToUserFavorites(getItemResponse.Item);
-
-        //        // Remove the specified FavoritesList
-        //        var updatedFavoritesLists = userFavorites.Favorites
-        //            .Where(list => list.ListId != listIdToDelete)
-        //            .ToList();
-
-        //        if (updatedFavoritesLists.Count == userFavorites.Favorites.Count)
-        //        {
-        //            _logger.LogError($"FavoritesList {listIdToDelete} not found for User {userId}.");
-        //            return;
-        //        }
-
-        //        userFavorites.Favorites = updatedFavoritesLists;
-
-        //        // Update the UserFavorites object in DynamoDB
-        //        var updateItemRequest = CreateUpdateItemRequest(userFavorites);
-        //        await _dynamoDbClient.UpdateItemAsync(updateItemRequest);
-
-        //        _logger.LogInformation($"FavoritesList {listIdToDelete} deleted for User {userId}.");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError($"Error deleting FavoritesList {listIdToDelete} for User {userId}", ex);
-        //    }
-        //}
-
-        // DELETE an individual FavoritesList from a UserFavorites
+        // DELETE a single FavoritesList
         public async Task<bool> DeleteFavoritesListAsync(string userId, string listIdToDelete)
         {
             try
             {
+                // Get current UserFavorites
+                var userFavorites = await GetUserFavoritesAsync(userId);
+                if (userFavorites == null)
+                {
+                    _logger.LogWarning($"UserFavorites for User {userId} not found.");
+                    return false;
+                }
+
+                // Find the list to delete
+                var listIndex = userFavorites.Favorites.FindIndex(list => list.ListId == listIdToDelete);
+                if (listIndex == -1)
+                {
+                    _logger.LogWarning($"FavoritesList {listIdToDelete} for User {userId} not found.");
+                    return false;
+                }
+
                 // Define the update expression to remove the specific FavoritesList
-                var updateExpression = "REMOVE Favorites[" +
-                                       "listIdToDelete]" +
-                                       "";
+                var updateExpression = $"REMOVE #Favorites[{listIndex}]";
 
                 // Create the request to update the UserFavorites object
                 var updateItemRequest = new UpdateItemRequest
@@ -264,19 +264,19 @@ namespace Trnkt.Services
                         { "UserId", new AttributeValue { S = userId } }
                     },
                     UpdateExpression = updateExpression,
-                    ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                    ExpressionAttributeNames = new Dictionary<string, string>
                     {
-                        { ":listIdToDelete", new AttributeValue { S = listIdToDelete } }
+                        { "#Favorites", "Favorites" }
                     },
-                    ConditionExpression = "contains(Favorites, :listIdToDelete)" // Ensure the item exists before trying to delete it
+                    ConditionExpression = "attribute_exists(Favorites)" // Ensure the Favorites attribute exists before trying to delete
                 };
 
                 // Execute the update request
                 var updateItemResponse = await _dynamoDbClient.UpdateItemAsync(updateItemRequest);
 
-                if (updateItemResponse == null)
+                if (updateItemResponse.HttpStatusCode != System.Net.HttpStatusCode.OK)
                 {
-                    _logger.LogError($"FavoritesList {listIdToDelete} not found or could not be deleted for User {userId}.");
+                    _logger.LogError($"Failed to delete FavoritesList {listIdToDelete} for User {userId}. HTTP Status Code: {updateItemResponse.HttpStatusCode}");
                     return false;
                 }
 
@@ -285,7 +285,7 @@ namespace Trnkt.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error deleting FavoritesList {listIdToDelete} for User {userId}", ex);
+                _logger.LogError($"Error deleting FavoritesList {listIdToDelete} for User {userId}: {ex}");
                 return false;
             }
         }
@@ -296,25 +296,13 @@ namespace Trnkt.Services
         {
             try
             {
-                // Fetch the existing UserFavorites object
-                var getItemRequest = new GetItemRequest
-                {
-                    TableName = _settings.FavoritesTableName,
-                    Key = new Dictionary<string, AttributeValue>
-                    {
-                        { "UserId", new AttributeValue { S = userId } }
-                    }
-                };
-
-                var getItemResponse = await _dynamoDbClient.GetItemAsync(getItemRequest);
-
-                if (getItemResponse.Item == null || !getItemResponse.Item.Any())
+                // Get current UserFavorites
+                var userFavorites = await GetUserFavoritesAsync(userId);
+                if (userFavorites == null)
                 {
                     _logger.LogWarning($"UserFavorites for User {userId} not found.");
                     return false;
                 }
-
-                var userFavorites = MapDynamoDbItemToUserFavorites(getItemResponse.Item);
 
                 // Locate the specific FavoritesList by listId
                 var favoritesList = userFavorites.Favorites.FirstOrDefault(fl => fl.ListId == listId);
@@ -485,8 +473,6 @@ namespace Trnkt.Services
                 ExpressionAttributeNames = expressionAttributeNames
             };
         }
-
-
 
         // Logging Helper Methods
         private string SerializeAttributeValue(AttributeValue value)
